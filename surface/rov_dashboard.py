@@ -1,4 +1,4 @@
-import socket, json, threading, subprocess
+import socket, json, threading, subprocess, signal
 from inputs import get_gamepad
 import tkinter as tk
 from tkinter import ttk
@@ -88,5 +88,29 @@ cal_btn.pack()
 
 rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
 rec_btn.pack()
+
+# handle terminal Ctrl+C (SIGINT) so the Tk mainloop exits cleanly
+def _sigint_handler(signum, frame=None):
+    print('caught ^C')
+    global recording, record_proc
+    try:
+        if record_proc is not None and recording:
+            record_proc.terminate()
+    except Exception:
+        pass
+    try:
+        root.destroy()
+    except Exception:
+        pass
+
+def _check():
+    # schedule another check so the signal gets processed while
+    # the Tk event loop is running
+    root.after(500, _check)
+
+# register the signal handler and start the periodic check
+signal.signal(signal.SIGINT, _sigint_handler)
+root.after(500, _check)
+root.bind_all('<Control-c>', lambda e: _sigint_handler(None, None))
 
 root.mainloop()
