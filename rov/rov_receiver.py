@@ -11,6 +11,32 @@ PI4_IP      = "10.0.0.13"
 VIDEO_DEVICE = "/dev/video1"
 VIDEO_PORT   = 5000
 
+# runtime globals for graceful shutdown from SIGINT
+running = True
+video = None
+ser = None
+sock = None
+
+def _sigint_handler(signum, frame):
+    global running, video, ser, sock
+    print('caught ^C, shutting down')
+    running = False
+    try:
+        if video is not None and video.poll() is None:
+            video.terminate()
+    except Exception:
+        pass
+    try:
+        if ser is not None and getattr(ser, 'is_open', False):
+            ser.close()
+    except Exception:
+        pass
+    try:
+        if sock is not None:
+            sock.close()
+    except Exception:
+        pass
+
 def start_video_stream():
     return subprocess.Popen([
         "/usr/bin/gst-launch-1.0",
@@ -33,6 +59,7 @@ def fmt(c):
     )
 
 def main():
+    global sock, ser, video, running
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((LISTEN_IP, LISTEN_PORT))
 
@@ -41,7 +68,10 @@ def main():
     video = start_video_stream()
     last_check = time.time()
 
-    while True:
+    # ensure SIGINT triggers graceful shutdown
+    signal.signal(signal.SIGINT, _sigint_handler)
+
+    while running:
         try:
 
             data,_ = sock.recvfrom(1024)
@@ -55,6 +85,23 @@ def main():
             if video.poll() is not None:
                 video = start_video_stream()
             last_check = time.time()
+
+    # final cleanup
+    try:
+        if video is not None and video.poll() is None:
+            video.terminate()
+    except Exception:
+        pass
+    try:
+        if ser is not None and getattr(ser, 'is_open', False):
+            ser.close()
+    except Exception:
+        pass
+    try:
+        if sock is not None:
+            sock.close()
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     main()
