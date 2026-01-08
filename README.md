@@ -8,7 +8,15 @@ I ran these commands
 sudo apt update
 sudo apt install ssh
 sudo /etc/init.d/ssh start
-sudo passwd rov
+sudo passwd rov    # for surface
+sudo passwd pi     # for rov
+```
+
+```bash
+# ssh into the pi
+nano .ssh/authorized_keys
+# paste in contents of id_ed25519.pub
+chmod 600 authorized_keys
 ```
 
 
