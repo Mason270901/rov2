@@ -33,3 +33,17 @@ nano config
 # vscode shortcuts
 * `ctrl+~`  open terminal
 * `ctrl+shift+~` open new terminal
+
+
+
+# surface
+If running from vs code:
+
+```
+DISPLAY=:0 python3 ./rov_dashboard.py
+```
+
+stop from another terminal
+```
+sudo pkill -f rov_dashboard.py
+```

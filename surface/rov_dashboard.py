@@ -6,6 +6,8 @@ from tkinter import ttk
 PI5_IP = "10.0.0.204"
 PI5_PORT = 9000
 
+DEADZONE = 0.15
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
@@ -13,17 +15,27 @@ calibrate = False
 recording = False
 record_proc = None
 
+# 16 bit normalize
 def norm(v): return max(-1,min(1,v/32767))
 
+# call this after norm
+def deadzone(v):
+    if(abs(v) <= DEADZONE):
+        return 0
+    else:
+        return v
+
+# handles each xbox input
 def process(e):
     if e.ev_type=="Absolute":
-        if e.code=="ABS_X": axes["LX"]=norm(e.state)
-        if e.code=="ABS_Y": axes["LY"]=-norm(e.state)
-        if e.code=="ABS_RX": axes["RX"]=norm(e.state)
-        if e.code=="ABS_RY": axes["RY"]=-norm(e.state)
+        if e.code=="ABS_X": axes["LX"]=deadzone(norm(e.state))
+        if e.code=="ABS_Y": axes["LY"]=deadzone(-norm(e.state))
+        if e.code=="ABS_RX": axes["RX"]=deadzone(norm(e.state))
+        if e.code=="ABS_RY": axes["RY"]=deadzone(-norm(e.state))
         if e.code=="ABS_Z": axes["LT"]=e.state/255
         if e.code=="ABS_RZ": axes["RT"]=e.state/255
 
+# takes the axes object, and converts it to a format to send over the wire
 def compute():
     claw = 0.5 + 0.5*(axes["RT"]-axes["LT"])
     claw = max(0,min(1,claw))
@@ -40,6 +52,7 @@ def sender():
     while True:
         for e in get_gamepad():
             process(e)
+        # print(axes)
         sock.sendto(json.dumps(compute()).encode(), (PI5_IP, PI5_PORT))
 
 threading.Thread(target=sender, daemon=True).start()
