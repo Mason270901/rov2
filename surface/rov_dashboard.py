@@ -1,0 +1,79 @@
+import socket, json, threading, subprocess
+from inputs import get_gamepad
+import tkinter as tk
+from tkinter import ttk
+
+PI5_IP = "10.0.0.204"
+PI5_PORT = 9000
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
+calibrate = False
+recording = False
+record_proc = None
+
+def norm(v): return max(-1,min(1,v/32767))
+
+def process(e):
+    if e.ev_type=="Absolute":
+        if e.code=="ABS_X": axes["LX"]=norm(e.state)
+        if e.code=="ABS_Y": axes["LY"]=-norm(e.state)
+        if e.code=="ABS_RX": axes["RX"]=norm(e.state)
+        if e.code=="ABS_RY": axes["RY"]=-norm(e.state)
+        if e.code=="ABS_Z": axes["LT"]=e.state/255
+        if e.code=="ABS_RZ": axes["RT"]=e.state/255
+
+def compute():
+    claw = 0.5 + 0.5*(axes["RT"]-axes["LT"])
+    claw = max(0,min(1,claw))
+    return {
+        "surge": axes["LY"],
+        "sway": axes["LX"],
+        "yaw": axes["RX"],
+        "heave": axes["RY"],
+        "claw_pos": claw,
+        "calibrate": calibrate
+    }
+
+def sender():
+    while True:
+        for e in get_gamepad():
+            process(e)
+        sock.sendto(json.dumps(compute()).encode(), (PI5_IP, PI5_PORT))
+
+threading.Thread(target=sender, daemon=True).start()
+
+def toggle_cal():
+    global calibrate
+    calibrate = not calibrate
+
+def toggle_record():
+    global recording, record_proc
+    if not recording:
+        record_proc = subprocess.Popen([
+            "gst-launch-1.0",
+            "udpsrc", "port=5000",
+            "!", "application/x-rtp, media=video, encoding-name=H264, payload=96",
+            "!", "rtph264depay",
+            "!", "h264parse",
+            "!", "mp4mux",
+            "!", "filesink", "location=rov_recording.mp4"
+        ])
+        recording = True
+        rec_btn.config(text="Stop Recording")
+    else:
+        record_proc.terminate()
+        recording = False
+        rec_btn.config(text="Start Recording")
+
+root = tk.Tk()
+root.title("ROV Dashboard")
+
+cal_btn = ttk.Button(root, text="Toggle Calibration", command=toggle_cal)
+cal_btn.pack()
+
+rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
+rec_btn.pack()
+
+root.mainloop()
