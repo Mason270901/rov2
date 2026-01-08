@@ -55,3 +55,12 @@ stop from another terminal
 ```
 sudo pkill -f rov_dashboard.py
 ```
+
+# if the ip changes
+If the ips change, you need to tell windows
+
+```bash
+cd ~
+cd .ssh
+code config
+```
