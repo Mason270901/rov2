@@ -1,7 +1,7 @@
 #include <Servo.h>
 
 const int NUM_THRUSTERS = 6;
-const int thrusterPins[NUM_THRUSTERS] = {11, 12, 13, 10, 8, 9};  // UL, FL, BL, UR, FR, BR
+const int thrusterPins[NUM_THRUSTERS] = {8, 12, 13, 9, 11, 10};  // UL, FL, BL, UR, FR, BR
 const int clawPin = 22;
 
 Servo thrusters[NUM_THRUSTERS];
@@ -15,7 +15,7 @@ const int NEUTRAL = 1500;
 const int RANGE = 400;
 
 const int CLAW_OPEN = 120;
-const int CLAW_CLOSED = 60;
+const int CLAW_CLOSED = 10;
 
 void setup() {
   Serial.begin(115200);
