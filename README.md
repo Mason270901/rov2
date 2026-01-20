@@ -70,3 +70,25 @@ cd ~
 cd .ssh
 code config
 ```
+
+# setup static network
+```bash
+nmcli connection show
+
+
+sudo nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.2.204/24
+sudo nmcli connection modify "Wired connection 1" ipv4.method manual\
+# next two are maybe not required?
+sudo nmcli connection modify "Wired connection 1" ipv4.never-default yes
+sudo nmcli connection modify "Wired connection 1" ipv4.route-metric 1000
+sudo nmcli connection up "Wired connection 1"
+
+
+
+sudo nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.2.13/24
+sudo nmcli connection modify "Wired connection 1" ipv4.method manual
+sudo nmcli connection up "Wired connection 1"
+
+
+
+```
