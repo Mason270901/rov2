@@ -48,6 +48,7 @@ nano config
 If running from vs code:
 
 ```
+cd surface
 DISPLAY=:0 python3 ./rov_dashboard.py
 ```
 

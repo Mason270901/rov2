@@ -48,12 +48,22 @@ def compute():
         "calibrate": calibrate
     }
 
+def fmt(c):
+    return (
+        f"SURGE {c['surge']:.3f} "
+        f"SWAY {c['sway']:.3f} "
+        f"YAW {c['yaw']:.3f} "
+        f"HEAVE {c['heave']:.3f} "
+        f"CLAW_POS {c['claw_pos']:.3f} "
+        f"CALIBRATE {int(c['calibrate'])}\n"
+    )
+
 def sender():
     while True:
         for e in get_gamepad():
             process(e)
         # print(axes)
-        sock.sendto(json.dumps(compute()).encode(), (PI5_IP, PI5_PORT))
+        sock.sendto(fmt(compute()).encode(), (PI5_IP, PI5_PORT))
 
 threading.Thread(target=sender, daemon=True).start()
 
