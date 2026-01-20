@@ -48,15 +48,7 @@ def start_video_stream():
         "!", "udpsink", f"host={PI4_IP}", f"port={VIDEO_PORT}", "sync=false"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-def fmt(c):
-    return (
-        f"SURGE {c['surge']:.3f} "
-        f"SWAY {c['sway']:.3f} "
-        f"YAW {c['yaw']:.3f} "
-        f"HEAVE {c['heave']:.3f} "
-        f"CLAW_POS {c['claw_pos']:.3f} "
-        f"CALIBRATE {int(c['calibrate'])}\n"
-    )
+
 
 def main():
     global sock, ser, video, running
@@ -76,8 +68,7 @@ def main():
 
             data,_ = sock.recvfrom(1024)
             print("Received:", data)
-            cmd = json.loads(data.decode())
-            ser.write(fmt(cmd).encode())
+            ser.write(data)
         except:
             pass
 

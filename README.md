@@ -43,6 +43,11 @@ nano config
 * `ctrl+shift+~` open new terminal
 
 
+# rov
+```bash
+cd rov
+python3 rov_receiver.py
+```
 
 # surface
 If running from vs code:
