@@ -2,18 +2,22 @@ import socket, json, threading, subprocess, signal
 from inputs import get_gamepad
 import tkinter as tk
 from tkinter import ttk
+import time
 
 PI5_IP = "10.0.0.204"
 PI5_PORT = 9000
 
 DEADZONE = 0.15
-
+TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
+CLAW_RATE = 0.30  # claw open/close rate in units per second
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
 calibrate = False
 recording = False
 record_proc = None
+claw_pos = 0.5
+claw_last_update = time.time()
 
 # 16 bit normalize
 def norm(v): return max(-1,min(1,v/32767))
@@ -37,14 +41,33 @@ def process(e):
 
 # takes the axes object, and converts it to a format to send over the wire
 def compute():
-    claw = 0.5 + 0.5*(axes["RT"]-axes["LT"])
-    claw = max(0,min(1,claw))
+    global claw_pos, claw_last_update
+    now = time.time()
+    dt = now - claw_last_update
+    claw_last_update = now
+    
+    rt = axes["RT"]
+    lt = axes["LT"]
+    
+    # Apply trigger deadzone to prevent jitter when triggers are idle
+    if rt < TRIGGER_DEADZONE:
+        rt = 0
+    if lt < TRIGGER_DEADZONE:
+        lt = 0
+    
+    # Move claw proportionally based on trigger deflection
+    # RT increases claw_pos, LT decreases it, scaled by actual time delta
+    claw_pos += (rt - lt) * CLAW_RATE * dt
+    
+    # Clamp between 0 and 1
+    claw_pos = max(0, min(1, claw_pos))
+    
     return {
         "surge": axes["LY"],
         "sway": axes["LX"],
         "yaw": axes["RX"],
         "heave": axes["RY"],
-        "claw_pos": claw,
+        "claw_pos": claw_pos,
         "calibrate": calibrate
     }
 
@@ -59,11 +82,16 @@ def fmt(c):
     )
 
 def sender():
+    last = time.time()
     while True:
         for e in get_gamepad():
             process(e)
-        # print(axes)
-        sock.sendto(fmt(compute()).encode(), (PI5_IP, PI5_PORT))
+        # now = time.time()
+        # print(str(axes) + str(now-last))
+        # last = now
+        comp = compute()
+        print(comp)
+        sock.sendto(fmt(comp).encode(), (PI5_IP, PI5_PORT))
 
 threading.Thread(target=sender, daemon=True).start()
 
