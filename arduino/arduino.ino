@@ -1,7 +1,8 @@
 #include <Servo.h>
 
 const int NUM_THRUSTERS = 6;
-const int thrusterPins[NUM_THRUSTERS] = {8, 12, 13, 9, 11, 10};  // UL, FL, BL, UR, FR, BR
+// avoid pin 13 for anything because it toggles during programming
+const int thrusterPins[NUM_THRUSTERS] = {8, 12, 7, 9, 11, 10};  // UL, FL, BL, UR, FR, BR
 const int clawPin = 22;
 
 Servo thrusters[NUM_THRUSTERS];
@@ -11,7 +12,14 @@ float surge = 0, sway = 0, yaw = 0, heave = 0;
 float clawPos = 0.5;
 bool calibrate = false;
 
-const float THRUSTER_ALPHA = 0.2;
+// const float THRUSTER_ALPHA = 0.02;
+
+
+// THRUSTER_ALPHA
+// lower numbers filter more.
+// with a value of 0.0002. holding the stick at full throttle, then
+// releasing it, it takes the motors about 7.5 seconds to spool down to zero
+const float THRUSTER_ALPHA = 0.0002*2*10;
 float t_prev[NUM_THRUSTERS] = {0};
 
 const int NEUTRAL = 1500;
@@ -33,7 +41,13 @@ void setup() {
 
   Serial.println("board init, waiting for esc");
 
-  delay(5000);  // ESC arming delay
+  for (int i = 0; i < 5; i++) {
+    Serial.print("ESC wait ");
+    Serial.println( 5 - (i + 1) );
+    delay(1000);
+  }
+
+  Serial.println("done");
 }
 
 void loop() {
@@ -42,6 +56,8 @@ void loop() {
   if (calibrate) {
     runCalibration();
   } else {
+    // Serial.println("alive");
+    // delay(750);
     updateThrusters();
     updateClaw();
   }
@@ -92,9 +108,11 @@ void updateThrusters() {
   for (int i = 0; i < NUM_THRUSTERS; i++) {
     t[i] = constrain(t[i], -1.0, 1.0);
     float tf = THRUSTER_ALPHA * t[i] + (1.0 - THRUSTER_ALPHA) * t_prev[i];
+    // Serial.print("t["); Serial.print(i); Serial.print("]="); Serial.print(t[i]); Serial.print(" tf="); Serial.println(tf);
     tf = constrain(tf, -1.0, 1.0);
     t_prev[i] = tf;
     int pulse = NEUTRAL + (int)(tf * RANGE);
+    // int pulse = NEUTRAL + (int)(t[i] * RANGE);
     thrusters[i].writeMicroseconds(pulse);
   }
 }

@@ -17,8 +17,15 @@ video = None
 ser = None
 sock = None
 
+###############################################################################
+# Options
+print_arduino = True  # set to True to print all Arduino serial output
+print_udp = True
+###############################################################################
+
+
 def _sigint_handler(signum, frame):
-    global running, video, ser, sock
+    global running, video, ser, sock, print_arduino
     print('caught ^C, shutting down')
     running = False
     try:
@@ -51,26 +58,59 @@ def start_video_stream():
 
 
 def main():
-    global sock, ser, video, running
+    global sock, ser, video, running, print_arduino
+    print("binding socket...")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((LISTEN_IP, LISTEN_PORT))
+    sock.setblocking(False)  # make socket non-blocking
 
+    print("opening serial with 2 second delay...")
     ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0.1)
+    print("serial open:", getattr(ser, 'is_open', False))
+    # prevent Arduino auto-reset on open (DTR toggle). Some launchers/debuggers
+    # hold DTR differently which is why CLI vs debugger behaved differently.
+    try:
+        ser.dtr = False
+    except Exception:
+        pass
+    # give Arduino time to finish any auto-reset and start sending
+    time.sleep(2)
+    try:
+        ser.reset_input_buffer()
+    except Exception:
+        pass
+    
+    print("Arduino should be awake")
 
+    print("starting video stream...")
     video = start_video_stream()
-    last_check = time.time()
+
 
     # ensure SIGINT triggers graceful shutdown
+    print("setting up signal handler...")
     signal.signal(signal.SIGINT, _sigint_handler)
 
+    print("ROV receiver is up and running.")
+
+    last_check = time.time()
     while running:
         try:
-
             data,_ = sock.recvfrom(1024)
-            print("Received:", data)
+            if print_udp:
+                print("Received:", data)
             ser.write(data)
-        except:
+        except (BlockingIOError, socket.error):
             pass
+
+        # read Arduino serial output if available
+        if print_arduino and ser is not None and ser.is_open:
+            try:
+                if ser.in_waiting > 0:
+                    arduino_data = ser.read(ser.in_waiting)
+                    if arduino_data:
+                        print(arduino_data.decode('utf-8', errors='ignore'), end='')
+            except Exception as e:
+                print(f"Error reading Arduino serial: {e}")
 
         if time.time() - last_check > 5:
             if video.poll() is not None:
@@ -95,4 +135,5 @@ def main():
         pass
 
 if __name__ == "__main__":
+    print("Starting ROV receiver...")
     main()
