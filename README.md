@@ -92,3 +92,34 @@ sudo nmcli connection up "Wired connection 1"
 
 
 ```
+
+
+# Setup Arduino CLI (rov only)
+
+```
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+sudo mv bin/arduino-cli /usr/local/bin/
+
+
+arduino-cli config init
+arduino-cli core update-index
+arduino-cli core install arduino:avr
+
+arduino-cli lib install Servo
+
+
+```
+
+
+If it says:
+
+```
+arduino-cli compile --fqbn arduino:avr:mega . Used platform Version Path arduino:avr   1.8.7   /home/pi/.arduino15/packages/arduino/hardware/avr/1.8.7 Error during build: unexpected  end of JSON input pi@rov:~/rov2/arduino $
+```
+
+run this, then repeat the steps above
+
+```
+rm -rf ~/.arduino15
+rm -rf /home/pi/Arduino/libraries/Servo
+```

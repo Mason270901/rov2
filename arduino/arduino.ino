@@ -31,6 +31,8 @@ void setup() {
   claw.attach(clawPin);
   claw.write(CLAW_OPEN);
 
+  Serial.println("board init, waiting for esc");
+
   delay(5000);  // ESC arming delay
 }
 
