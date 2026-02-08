@@ -4,10 +4,10 @@ import tkinter as tk
 from tkinter import ttk
 import time
 
-PI5_IP = "10.0.0.204"
+PI5_IP = "192.168.2.204"
 PI5_PORT = 9000
 
-DEADZONE = 0.15
+DEADZONE = 0.2
 TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
 CLAW_RATE = 0.30  # claw open/close rate in units per second
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
