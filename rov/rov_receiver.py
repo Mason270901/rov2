@@ -7,7 +7,7 @@ LISTEN_PORT = 9000
 SERIAL_PORT = "/dev/ttyACM0"
 BAUD        = 115200
 
-PI4_IP      = "10.0.0.13"
+PI4_IP      = "192.168.2.13"
 VIDEO_DEVICE = "/dev/video1"
 VIDEO_PORT   = 5000
 
