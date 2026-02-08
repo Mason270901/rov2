@@ -11,6 +11,9 @@ float surge = 0, sway = 0, yaw = 0, heave = 0;
 float clawPos = 0.5;
 bool calibrate = false;
 
+const float THRUSTER_ALPHA = 0.2;
+float t_prev[NUM_THRUSTERS] = {0};
+
 const int NEUTRAL = 1500;
 const int RANGE = 400;
 
@@ -86,7 +89,10 @@ void updateThrusters() {
 
   for (int i = 0; i < NUM_THRUSTERS; i++) {
     t[i] = constrain(t[i], -1.0, 1.0);
-    int pulse = NEUTRAL + (int)(t[i] * RANGE);
+    float tf = THRUSTER_ALPHA * t[i] + (1.0 - THRUSTER_ALPHA) * t_prev[i];
+    tf = constrain(tf, -1.0, 1.0);
+    t_prev[i] = tf;
+    int pulse = NEUTRAL + (int)(tf * RANGE);
     thrusters[i].writeMicroseconds(pulse);
   }
 }
