@@ -1,4 +1,4 @@
-import socket, json, threading, subprocess, signal
+import socket, json, threading, subprocess, signal, logging, select
 from inputs import get_gamepad
 import tkinter as tk
 from tkinter import ttk
@@ -16,6 +16,7 @@ axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
 calibrate = False
 recording = False
 record_proc = None
+video = None
 claw_pos = 0.5
 claw_last_update = time.time()
 
@@ -100,7 +101,7 @@ def toggle_cal():
     calibrate = not calibrate
 
 def toggle_record():
-    global recording, record_proc
+    global recording, record_proc, rec_btn
     if not recording:
         record_proc = subprocess.Popen([
             "gst-launch-1.0",
@@ -118,6 +119,42 @@ def toggle_record():
         recording = False
         rec_btn.config(text="Start Recording")
 
+def start_video_stream():
+    """Start a local GStreamer pipeline that listens on UDP port 5000 and
+    displays the incoming H.264 RTP stream. Returns the subprocess.Popen
+    object so callers can terminate it when desired.
+    """
+    pipeline = (
+        'gst-launch-1.0 udpsrc port=5000 '
+        'caps="application/x-rtp, media=video, encoding-name=H264, payload=96" ! '
+        'rtph264depay ! avdec_h264 ! identity silent=false ! videoconvert ! autovideosink'
+    )
+
+    logging.info(f'Starting video display pipeline: {pipeline}')
+    proc = subprocess.Popen(pipeline, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    return proc
+
+
+def read_video_stream_output(video_proc):
+    """Read available output from the video process without blocking."""
+    if video_proc is None or video_proc.poll() is not None:
+        return
+    try:
+        readable, _, _ = select.select([video_proc.stdout, video_proc.stderr], [], [], 0)
+        for stream in readable:
+            try:
+                line = stream.readline()
+                if line:
+                    if stream == video_proc.stdout:
+                        logging.info(line.rstrip())
+                    else:
+                        logging.error(line.rstrip())
+            except Exception as e:
+                logging.error(f"Error reading video stream: {e}")
+    except Exception:
+        # select may fail on some platforms; ignore and continue
+        pass
+
 def main():
     root = tk.Tk()
     root.title("ROV Dashboard")
@@ -128,13 +165,35 @@ def main():
     rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
     rec_btn.pack()
 
+    # start the video display pipeline on app start
+    global video
+    try:
+        video = start_video_stream()
+    except Exception as e:
+        logging.error(f"Failed to start video stream: {e}")
+
+    def poll_video():
+        read_video_stream_output(video)
+        root.after(200, poll_video)
+
+    root.after(200, poll_video)
+
     # handle terminal Ctrl+C (SIGINT) so the Tk mainloop exits cleanly
     def _sigint_handler(signum, frame=None):
         print('caught ^C')
-        global recording, record_proc
+        on_close()
+
+    def on_close():
+        # terminate recording and video processes, then destroy UI
+        global recording, record_proc, video
         try:
             if record_proc is not None and recording:
                 record_proc.terminate()
+        except Exception:
+            pass
+        try:
+            if video is not None and video.poll() is None:
+                video.terminate()
         except Exception:
             pass
         try:
@@ -151,6 +210,7 @@ def main():
     signal.signal(signal.SIGINT, _sigint_handler)
     root.after(500, _check)
     root.bind_all('<Control-c>', lambda e: _sigint_handler(None, None))
+    root.protocol("WM_DELETE_WINDOW", on_close)
 
     root.mainloop()
 
