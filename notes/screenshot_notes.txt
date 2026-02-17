@@ -1,5 +1,8 @@
-0 power on both rails
-1 motor operation
-2 12v overshoot
-3 5v idle noise
-4 motors low running 5v noise 
+scope_0 power on both rails
+scope_1 motor operation
+scope_2 12v overshoot
+scope_3 5v idle noise
+scope_4 motors low running 5v noise 
+scope_5 (this is just a picture of the lose connection do not consider)
+scope_6 new dedicated 12V cable (for the pi's 12->5 converter) unloaded
+scope_7 new dedicated 12V cable (for the pi's 12->5 converter) under load
