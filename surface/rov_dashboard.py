@@ -1,4 +1,4 @@
-import socket, json, threading, subprocess, signal, logging, select
+import socket, json, threading, subprocess, signal, logging, select, os
 from inputs import get_gamepad
 import tkinter as tk
 from tkinter import ttk
@@ -103,7 +103,7 @@ def toggle_cal():
 def toggle_record():
     global recording, record_proc, rec_btn
     if not recording:
-        record_proc = subprocess.Popen([
+        cmd = [
             "gst-launch-1.0",
             "udpsrc", "port=5000",
             "!", "application/x-rtp, media=video, encoding-name=H264, payload=96",
@@ -111,11 +111,15 @@ def toggle_record():
             "!", "h264parse",
             "!", "mp4mux",
             "!", "filesink", "location=rov_recording.mp4"
-        ])
+        ]
+        record_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         recording = True
         rec_btn.config(text="Stop Recording")
     else:
-        record_proc.terminate()
+        try:
+            record_proc.terminate()
+        except Exception:
+            pass
         recording = False
         rec_btn.config(text="Start Recording")
 
@@ -124,14 +128,21 @@ def start_video_stream():
     displays the incoming H.264 RTP stream. Returns the subprocess.Popen
     object so callers can terminate it when desired.
     """
-    pipeline = (
-        'gst-launch-1.0 udpsrc port=5000 '
-        'caps="application/x-rtp, media=video, encoding-name=H264, payload=96" ! '
-        'rtph264depay ! avdec_h264 ! identity silent=false ! videoconvert ! autovideosink'
-    )
+    cmd = [
+        "gst-launch-1.0",
+        "udpsrc", "port=5000",
+        "caps=application/x-rtp, media=video, encoding-name=H264, payload=96",
+        "!", "rtph264depay",
+        "!", "avdec_h264",
+        "!", "identity", "silent=false",
+        "!", "videoconvert",
+        "!", "autovideosink"
+    ]
 
-    logging.info(f'Starting video display pipeline: {pipeline}')
-    proc = subprocess.Popen(pipeline, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    logging.info(f'Starting video display pipeline: {cmd}')
+    # detach the child so it doesn't share the terminal/session and avoid
+    # blocking when the child writes to stdout/stderr.
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     return proc
 
 
