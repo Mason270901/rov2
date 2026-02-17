@@ -118,37 +118,43 @@ def toggle_record():
         recording = False
         rec_btn.config(text="Start Recording")
 
-root = tk.Tk()
-root.title("ROV Dashboard")
+def main():
+    root = tk.Tk()
+    root.title("ROV Dashboard")
 
-cal_btn = ttk.Button(root, text="Toggle Calibration", command=toggle_cal)
-cal_btn.pack()
+    cal_btn = ttk.Button(root, text="Toggle Calibration", command=toggle_cal)
+    cal_btn.pack()
 
-rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
-rec_btn.pack()
+    rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
+    rec_btn.pack()
 
-# handle terminal Ctrl+C (SIGINT) so the Tk mainloop exits cleanly
-def _sigint_handler(signum, frame=None):
-    print('caught ^C')
-    global recording, record_proc
-    try:
-        if record_proc is not None and recording:
-            record_proc.terminate()
-    except Exception:
-        pass
-    try:
-        root.destroy()
-    except Exception:
-        pass
+    # handle terminal Ctrl+C (SIGINT) so the Tk mainloop exits cleanly
+    def _sigint_handler(signum, frame=None):
+        print('caught ^C')
+        global recording, record_proc
+        try:
+            if record_proc is not None and recording:
+                record_proc.terminate()
+        except Exception:
+            pass
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
-def _check():
-    # schedule another check so the signal gets processed while
-    # the Tk event loop is running
+    def _check():
+        # schedule another check so the signal gets processed while
+        # the Tk event loop is running
+        root.after(500, _check)
+
+    # register the signal handler and start the periodic check
+    signal.signal(signal.SIGINT, _sigint_handler)
     root.after(500, _check)
+    root.bind_all('<Control-c>', lambda e: _sigint_handler(None, None))
 
-# register the signal handler and start the periodic check
-signal.signal(signal.SIGINT, _sigint_handler)
-root.after(500, _check)
-root.bind_all('<Control-c>', lambda e: _sigint_handler(None, None))
+    root.mainloop()
 
-root.mainloop()
+if __name__ == "__main__":
+    print("Starting ROV dashboard...")
+    main()
+
