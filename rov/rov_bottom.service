@@ -1,0 +1,14 @@
+[Unit]
+Description=ROV Bottom Pi Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/rov2/rov/rov_receiver.py
+WorkingDirectory=/home/pi/rov2/rov
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target

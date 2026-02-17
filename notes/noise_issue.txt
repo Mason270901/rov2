@@ -1,0 +1,11 @@
+# Issue
+noise on the rpi
+
+# Put Bypass caps on each ESC
+* put 1000uF or as large as physically possible on each ESC
+* Solder directly to the back of each esc
+
+# Solution 1 (Option)
+* run another 12V teather
+  * put the PI's 5V DC converter on this new teather
+

@@ -123,3 +123,21 @@ run this, then repeat the steps above
 rm -rf ~/.arduino15
 rm -rf /home/pi/Arduino/libraries/Servo
 ```
+
+
+# setup ROV to auto start
+
+```bash
+sudo nano /etc/systemd/system/rov_bottom.service
+
+# status
+systemctl status rov_bottom.service
+
+# start
+sudo systemctl start rov_bottom
+
+# enable
+sudo systemctl start rov_bottom
+
+```
+

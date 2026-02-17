@@ -1,0 +1,5 @@
+0 power on both rails
+1 motor operation
+2 12v overshoot
+3 5v idle noise
+4 motors low running 5v noise 
