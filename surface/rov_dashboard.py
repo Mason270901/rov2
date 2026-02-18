@@ -4,6 +4,9 @@ import tkinter as tk
 from tkinter import ttk
 import time
 
+
+VIDEO_ENABLED = True  # Global flag to enable/disable video
+
 PI5_IP = "192.168.2.204"
 PI5_PORT = 9000
 
@@ -176,18 +179,19 @@ def main():
     rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
     rec_btn.pack()
 
-    # start the video display pipeline on app start
+    # start the video display pipeline on app start if enabled
     global video
-    try:
-        video = start_video_stream()
-    except Exception as e:
-        logging.error(f"Failed to start video stream: {e}")
+    if VIDEO_ENABLED:
+        try:
+            video = start_video_stream()
+        except Exception as e:
+            logging.error(f"Failed to start video stream: {e}")
 
-    def poll_video():
-        read_video_stream_output(video)
+        def poll_video():
+            read_video_stream_output(video)
+            root.after(200, poll_video)
+
         root.after(200, poll_video)
-
-    root.after(200, poll_video)
 
     # handle terminal Ctrl+C (SIGINT) so the Tk mainloop exits cleanly
     def _sigint_handler(signum, frame=None):
