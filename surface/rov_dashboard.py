@@ -4,7 +4,8 @@ import tkinter as tk
 from tkinter import ttk
 import time
 
-
+# Configurable Variables for this Script
+###############################################################################
 VIDEO_ENABLED = True  # Global flag to enable/disable video
 
 PI5_IP = "192.168.2.204"
@@ -13,8 +14,12 @@ PI5_PORT = 9000
 DEADZONE = 0.2
 TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
 CLAW_RATE = 0.30  # claw open/close rate in units per second
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+controller_remap = False  # Set to True to remap Logitech controller values to Xbox ranges. Keep False for production
 
+
+# State Variables updated as we run
+###############################################################################
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
 calibrate = False
 recording = False
@@ -22,6 +27,20 @@ record_proc = None
 video = None
 claw_pos = 0.5
 claw_last_update = time.time()
+
+
+
+# Max raw controller values from the Xbox controller:
+#   Joystick axes (LX, LY, RX, RY): ±32767 (16-bit signed integer)
+#   Trigger axes (LT, RT): 0-255 (8-bit unsigned integer)
+
+# Remap Logitech controller values (0-255, centered at 127) to Xbox ranges (±32767)
+def remap(value, code):
+    if code not in ["ABS_X", "ABS_Y", "ABS_RX", "ABS_RY"]:
+        return value
+    # Convert from 0-255 range (centered at 127) to -32767 to 32767 range (centered at 0)
+    return int(((value - 127) / 128) * 32767)
+
 
 # 16 bit normalize
 def norm(v): return max(-1,min(1,v/32767))
@@ -36,10 +55,15 @@ def deadzone(v):
 # handles each xbox input
 def process(e):
     if e.ev_type=="Absolute":
-        if e.code=="ABS_X": axes["LX"]=deadzone(norm(e.state))
-        if e.code=="ABS_Y": axes["LY"]=deadzone(-norm(e.state))
-        if e.code=="ABS_RX": axes["RX"]=deadzone(norm(e.state))
-        if e.code=="ABS_RY": axes["RY"]=deadzone(-norm(e.state))
+        print(e.code, e.state)
+
+        # Apply controller remapping if enabled
+        state = remap(e.state, e.code) if controller_remap else e.state
+        
+        if e.code=="ABS_X": axes["LX"]=deadzone(norm(state))
+        if e.code=="ABS_Y": axes["LY"]=deadzone(-norm(state))
+        if e.code=="ABS_RX": axes["RX"]=deadzone(norm(state))
+        if e.code=="ABS_RY": axes["RY"]=deadzone(-norm(state))
         if e.code=="ABS_Z": axes["LT"]=e.state/255
         if e.code=="ABS_RZ": axes["RT"]=e.state/255
 
