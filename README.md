@@ -141,3 +141,21 @@ sudo systemctl start rov_bottom
 
 ```
 
+# Python venv
+If you want to replicate on a Linux Desktop, you can use python venv:
+
+This is what I ran initially:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+python3 -m pip install inputs
+```
+
+But now we have surface_requirements.txt so you should run:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+python3 -m pip install -r surface/surface_requirements.txt
+```
+
+Note, if you are in vscode, sometimes it will auto insert you into venv, if this happens, running `python3 -m venv venv2` will corrupt venv2 from the start.
