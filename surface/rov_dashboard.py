@@ -57,16 +57,16 @@ def estimate_current():
     yaw = axes["RX"]
     heave = axes["RY"]
     
-    # Calculate thruster values using the same mixing as Arduino
-    thruster[0] = surge + sway + yaw  # UL
-    thruster[1] = surge - sway + yaw  # FL
-    thruster[2] = surge - sway - yaw  # BL
-    thruster[3] = surge + sway - yaw  # UR
-    thruster[4] = heave               # FR
-    thruster[5] = heave               # BR
-    
-    # Constrain each thruster to [-1.0, 1.0] like Arduino does
-    thruster = [max(-1.0, min(1.0, val)) for val in thruster]
+    # Calculate thruster values using the same mixing as Arduino.
+    # Clamped inline so the list is never in a partially-unclamped state
+    # (avoids a one-frame glitch when the display thread reads between assignments).
+    def clamp(v): return max(-1.0, min(1.0, v))
+    thruster[0] = clamp(surge + sway + yaw)  # UL
+    thruster[1] = clamp(surge - sway + yaw)  # FL
+    thruster[2] = clamp(surge - sway - yaw)  # BL
+    thruster[3] = clamp(surge + sway - yaw)  # UR
+    thruster[4] = clamp(heave)               # FR
+    thruster[5] = clamp(heave)               # BR
     
     # Current is proportional to sum of absolute thruster values
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER

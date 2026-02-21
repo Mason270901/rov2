@@ -150,7 +150,7 @@ def draw_thrusters(canvas, thruster_values):
         # # Value below label
         # canvas.create_text(cx, track_bot + 20, text=f"{val:+.2f}",
         #                    anchor="n", font=("Arial", 7), fill="#333333")
-        
+
         # Value right of center of bar
         canvas.create_text(cx + 20, cy - 2, text=f"{val:+.2f}",
                            anchor="n", font=("Arial", 7), fill="#333333")
