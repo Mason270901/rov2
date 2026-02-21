@@ -14,9 +14,27 @@ CLAW_SIZE    = 50                           # size of blue box
 CLAW_BOX     = 170                          # Size of the white box (around claw)
 CLAW_CENTER  = CLAW_BOX/2                   # Offset of the blue claw box inside the white box
 
-THRUSTER_BOX_W = 240                        # Width of the thruster panel canvas
-THRUSTER_BOX_H = 170                        # Height of the thruster panel canvas
-THRUSTER_LABELS = ["UL", "FL", "BL", "UR", "FR", "BR"]
+THRUSTER_BOX_W = 260                        # Width of the thruster panel canvas
+THRUSTER_BOX_H = 200                        # Height of the thruster panel canvas
+THRUSTER_BAR_W      = 8                    # Width of each vertical bar
+THRUSTER_BAR_HALF_H = 20                    # Half-height of the bar track (pixels from centre to top/bottom)
+# THRUSTER_LABELS = ["UL", "FL", "BL", "UR", "FR", "BR"]
+THRUSTER_LABELS = ["Back Right", "Front Left", "Back Left", "Front Right", "Vertical Left", "Vertical Right"]
+
+
+# (cx, cy) centre of each thruster bar inside the canvas, order: UL FL BL UR FR BR
+# Adjust these to match your physical ROV layout.
+# cx must satisfy: THRUSTER_BAR_W//2 <= cx <= THRUSTER_BOX_W - THRUSTER_BAR_W//2
+# cy must satisfy: THRUSTER_BAR_HALF_H <= cy <= THRUSTER_BOX_H - THRUSTER_BAR_HALF_H - 30 (label space)
+THRUSTER_POSITIONS = [
+    # x , y
+    ( 196, 90-60),  # "Back Right"
+    ( 64, 90-60),  # "Front Left"
+    (64, 90+60),  # "Back Left"
+    (196, 90+60),  # "Front Right"
+    (64, 90),  # "Vertical Left"
+    (196, 90),  # "Vertical Right"
+]
 
 def draw_joystick(canvas, lx, ly, deadzone):
     """Draw a joystick visualization on the canvas.
@@ -88,52 +106,53 @@ def draw_claw(canvas, claw_position):
 
 
 def draw_thrusters(canvas, thruster_values):
-    """Draw 6 thruster progress bars on the canvas.
+    """Draw 6 vertical thruster bars on the canvas.
 
-    Each bar is centred at zero and fills left (negative) or right (positive)
-    proportional to the thruster value in [-1, 1].
+    Each bar is centred at its THRUSTER_POSITIONS coordinate.
+    Positive values fill upward (green), negative values fill downward (green).
+    The track background spans THRUSTER_BAR_HALF_H above and below the centre.
 
     Args:
         canvas: tkinter Canvas widget
         thruster_values: list of 6 floats in [-1.0, 1.0]
     """
-    bar_x_left  = 30    # left edge of bar track
-    bar_x_right = THRUSTER_BOX_W - 10  # right edge of bar track
-    bar_center  = (bar_x_left + bar_x_right) / 2
-    bar_half    = (bar_x_right - bar_x_left) / 2
-    bar_h       = 14    # height of each bar
-    row_step    = (THRUSTER_BOX_H - 20) / len(THRUSTER_LABELS)  # vertical spacing
+    bw   = THRUSTER_BAR_W
+    bh   = THRUSTER_BAR_HALF_H
 
-    for i, (label, val) in enumerate(zip(THRUSTER_LABELS, thruster_values)):
-        y_mid = 18 + i * row_step
-        y_top = y_mid - bar_h / 2
-        y_bot = y_mid + bar_h / 2
-
-        # Label
-        canvas.create_text(bar_x_left - 5, y_mid, text=label,
-                           anchor="e", font=("Arial", 8, "bold"), fill="black")
+    for (cx, cy), label, val in zip(THRUSTER_POSITIONS, THRUSTER_LABELS, thruster_values):
+        x0 = cx - bw // 2
+        x1 = cx + bw // 2
+        track_top = cy - bh
+        track_bot = cy + bh
 
         # Background track
-        canvas.create_rectangle(bar_x_left, y_top, bar_x_right, y_bot,
+        canvas.create_rectangle(x0, track_top, x1, track_bot,
                                 fill="#d0d0d0", outline="gray", width=1)
 
-        # Filled portion (green)
-        fill_w = abs(val) * bar_half
-        if val >= 0:
-            fx1, fx2 = bar_center, bar_center + fill_w
-        else:
-            fx1, fx2 = bar_center - fill_w, bar_center
-        if fill_w > 0:
-            canvas.create_rectangle(fx1, y_top + 1, fx2, y_bot - 1,
+        # Filled portion
+        fill_h = abs(val) * bh
+        if fill_h > 0:
+            if val >= 0:
+                fy0, fy1 = cy - fill_h, cy          # positive: grows upward
+            else:
+                fy0, fy1 = cy, cy + fill_h          # negative: grows downward
+            canvas.create_rectangle(x0 + 1, fy0, x1 - 1, fy1,
                                     fill="#00cc44", outline="", width=0)
 
         # Centre tick
-        canvas.create_line(bar_center, y_top, bar_center, y_bot,
-                           fill="black", width=1)
+        canvas.create_line(x0, cy, x1, cy, fill="black", width=1)
 
-        # Value text
-        canvas.create_text(bar_x_right + 4, y_mid, text=f"{val:+.2f}",
-                           anchor="w", font=("Arial", 7), fill="#333333")
+        # Label below bar
+        canvas.create_text(cx, track_bot + 8, text=label,
+                           anchor="n", font=("Arial", 8, "bold"), fill="black")
+
+        # # Value below label
+        # canvas.create_text(cx, track_bot + 20, text=f"{val:+.2f}",
+        #                    anchor="n", font=("Arial", 7), fill="#333333")
+        
+        # Value right of center of bar
+        canvas.create_text(cx + 20, cy - 2, text=f"{val:+.2f}",
+                           anchor="n", font=("Arial", 7), fill="#333333")
 
 
 def setup_gui(toggle_cal_callback, toggle_record_callback):
@@ -190,7 +209,7 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     thruster_frame.pack(side=tk.LEFT, padx=5)
 
     thruster_canvas = tk.Canvas(thruster_frame, width=THRUSTER_BOX_W, height=THRUSTER_BOX_H,
-                                bg="white", highlightthickness=1)
+                                bg="white", highlightthickness=1)  # resize via THRUSTER_BOX_W/H constants
     thruster_canvas.pack(padx=10, pady=10)
 
     # Status frame (for future additions)
