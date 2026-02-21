@@ -87,7 +87,7 @@ def deadzone(v):
 # handles each xbox input
 def process(e):
     if e.ev_type=="Absolute":
-        print(e.code, e.state)
+        # print(e.code, e.state)
 
         # Apply controller remapping if enabled
         state = remap(e.state, e.code) if controller_remap else e.state
