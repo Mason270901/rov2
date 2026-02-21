@@ -133,11 +133,12 @@ def draw_thrusters(canvas, thruster_values):
         fill_h = abs(val) * bh
         if fill_h > 0:
             if val >= 0:
+                color = "#00cc44"
                 fy0, fy1 = cy - fill_h, cy          # positive: grows upward
             else:
+                color = "#ff0033"
                 fy0, fy1 = cy, cy + fill_h          # negative: grows downward
-            canvas.create_rectangle(x0 + 1, fy0, x1 - 1, fy1,
-                                    fill="#00cc44", outline="", width=0)
+            canvas.create_rectangle(x0 + 1, fy0, x1 - 1, fy1, fill=color, outline="", width=0)
 
         # Centre tick
         canvas.create_line(x0, cy, x1, cy, fill="black", width=1)
