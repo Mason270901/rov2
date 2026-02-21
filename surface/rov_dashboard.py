@@ -3,7 +3,7 @@ from inputs import get_gamepad
 import tkinter as tk
 from tkinter import ttk
 import time
-from rov_gui import setup_gui, draw_joystick, draw_claw, draw_thrusters
+from rov_gui import setup_gui, draw_joystick, draw_claw, draw_thrusters, draw_current
 
 # Configurable Variables for this Script
 ###############################################################################
@@ -245,7 +245,7 @@ def main():
     global video, rec_btn, recording, record_proc
     
     # Set up the GUI
-    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, status_label, rec_btn = setup_gui(toggle_cal, toggle_record)
+    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, rec_btn = setup_gui(toggle_cal, toggle_record)
 
     # Update function for controller visualizations
     def update_displays():
@@ -264,6 +264,10 @@ def main():
         # Update thrusters
         thruster_canvas.delete("all")
         draw_thrusters(thruster_canvas, thruster)
+
+        # Update current meter
+        current_canvas.delete("all")
+        draw_current(current_canvas, estimated_current)
 
         # Update status label
         cal_status = "CAL" if calibrate else "---"

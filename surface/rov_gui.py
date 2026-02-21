@@ -21,6 +21,12 @@ THRUSTER_BAR_HALF_H = 20                    # Half-height of the bar track (pixe
 # THRUSTER_LABELS = ["UL", "FL", "BL", "UR", "FR", "BR"]
 THRUSTER_LABELS = ["Back Right", "Front Left", "Back Left", "Front Right", "Vertical Left", "Vertical Right"]
 
+CURRENT_BOX_W   = 50                        # Width of the current meter canvas
+CURRENT_BOX_H   = 200                       # Height of the current meter canvas
+CURRENT_MAX     = 36.0                      # Full-scale current (A) — 6 thrusters × 6 A
+CURRENT_WARN    = 24.0                      # Threshold where bar turns orange
+CURRENT_CRIT    = 30.0                      # Threshold where bar turns red
+
 
 # (cx, cy) centre of each thruster bar inside the canvas, order: UL FL BL UR FR BR
 # Adjust these to match your physical ROV layout.
@@ -156,6 +162,46 @@ def draw_thrusters(canvas, thruster_values):
                            anchor="n", font=("Arial", 7), fill="#333333")
 
 
+def draw_current(canvas, amps):
+    """Draw a narrow vertical progress bar showing estimated current draw.
+
+    Args:
+        canvas: tkinter Canvas widget (should be CURRENT_BOX_W × CURRENT_BOX_H)
+        amps: current draw in Amps (clamped to [0, CURRENT_MAX] for display)
+    """
+    pad_top    = 10
+    pad_bottom = 30   # space for value label
+    pad_x      = 10
+
+    x0 = pad_x
+    x1 = CURRENT_BOX_W - pad_x
+    track_top = pad_top
+    track_bot = CURRENT_BOX_H - pad_bottom
+    track_h   = track_bot - track_top
+
+    # Background track
+    canvas.create_rectangle(x0, track_top, x1, track_bot,
+                            fill="#d0d0d0", outline="gray", width=1)
+
+    # Filled portion — bar grows upward from bottom
+    fraction = max(0.0, min(1.0, amps / CURRENT_MAX))
+    if fraction > 0:
+        if amps >= CURRENT_CRIT:
+            color = "#ff2200"
+        elif amps >= CURRENT_WARN:
+            color = "#ff8800"
+        else:
+            color = "#00cc44"
+        fill_h = fraction * track_h
+        canvas.create_rectangle(x0 + 1, track_bot - fill_h, x1 - 1, track_bot,
+                                fill=color, outline="", width=0)
+
+    # Value label below bar
+    canvas.create_text((x0 + x1) / 2, track_bot + 8,
+                       text=f"{amps:.1f}A",
+                       anchor="n", font=("Arial", 8, "bold"), fill="black")
+
+
 def setup_gui(toggle_cal_callback, toggle_record_callback):
     """Set up the GUI and return all necessary components.
     
@@ -213,6 +259,14 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
                                 bg="white", highlightthickness=1)  # resize via THRUSTER_BOX_W/H constants
     thruster_canvas.pack(padx=10, pady=10)
 
+    # Current meter canvas
+    current_frame = ttk.LabelFrame(middle_frame, text="Current")
+    current_frame.pack(side=tk.LEFT, padx=5)
+
+    current_canvas = tk.Canvas(current_frame, width=CURRENT_BOX_W, height=CURRENT_BOX_H,
+                               bg="white", highlightthickness=1)
+    current_canvas.pack(padx=5, pady=10)
+
     # Status frame (for future additions)
     status_frame = ttk.LabelFrame(root, text="Status")
     status_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -220,4 +274,4 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     status_label = ttk.Label(status_frame, text="Ready", font=("Arial", 10))
     status_label.pack(padx=10, pady=5)
 
-    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, status_label, rec_btn
+    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, rec_btn
