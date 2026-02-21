@@ -25,6 +25,7 @@ calibrate = False
 recording = False
 record_proc = None
 video = None
+rec_btn = None
 claw_pos = 0.5
 claw_last_update = time.time()
 
@@ -141,14 +142,16 @@ def toggle_record():
         ]
         record_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         recording = True
-        rec_btn.config(text="Stop Recording")
+        if rec_btn:
+            rec_btn.config(text="Stop Recording")
     else:
         try:
             record_proc.terminate()
         except Exception:
             pass
         recording = False
-        rec_btn.config(text="Start Recording")
+        if rec_btn:
+            rec_btn.config(text="Start Recording")
 
 def start_video_stream():
     """Start a local GStreamer pipeline that listens on UDP port 5000 and
@@ -193,15 +196,129 @@ def read_video_stream_output(video_proc):
         # select may fail on some platforms; ignore and continue
         pass
 
+def draw_joystick(canvas, x, y, radius, lx, ly):
+    """Draw a joystick visualization on the canvas.
+    
+    Args:
+        canvas: tkinter Canvas widget
+        x, y: center position
+        radius: size of the joystick circle
+        lx, ly: normalized axis values (-1 to 1)
+    """
+    # Draw circle background
+    canvas.create_oval(x - radius, y - radius, x + radius, y + radius, 
+                       fill="lightgray", outline="black", width=2)
+    
+    # Draw center
+    canvas.create_oval(x - 5, y - 5, x + 5, y + 5, fill="black", outline="black")
+    
+    # Draw stick position
+    stick_x = x + lx * (radius - 10)
+    stick_y = y - ly * (radius - 10)  # negate ly because canvas y increases downward
+    canvas.create_oval(stick_x - 8, stick_y - 8, stick_x + 8, stick_y + 8,
+                       fill="red", outline="darkred", width=2)
+    
+    # Draw line from center to stick
+    canvas.create_line(x, y, stick_x, stick_y, fill="blue", width=2)
+
+def draw_claw(canvas, x, y, size, claw_position):
+    """Draw a claw control visualization.
+    
+    Args:
+        canvas: tkinter Canvas widget
+        x, y: center position
+        size: size of the claw visualization
+        claw_position: 0 (closed) to 1 (open)
+    """
+    # Draw claw base
+    canvas.create_rectangle(x - size, y - size, x + size, y + size,
+                           fill="lightblue", outline="black", width=2)
+    
+    # Draw progress bar for claw opening
+    bar_width = 2 * size - 10
+    bar_y = y + size - 10
+    canvas.create_rectangle(x - size + 5, bar_y - 15, x + size - 5, bar_y,
+                           fill="lightgray", outline="black", width=1)
+    
+    # Draw filled portion based on claw_position
+    fill_width = bar_width * claw_position
+    canvas.create_rectangle(x - size + 5, bar_y - 15, x - size + 5 + fill_width, bar_y,
+                           fill="green", outline="darkgreen", width=1)
+    
+    # Draw text label
+    canvas.create_text(x, y - 5, text=f"CLAW", font=("Arial", 12, "bold"), fill="black")
+    canvas.create_text(x, y + 15, text=f"{claw_position:.2f}", font=("Arial", 10), fill="black")
+
 def main():
+    global video, rec_btn, recording, record_proc
     root = tk.Tk()
     root.title("ROV Dashboard")
+    root.geometry("1000x600")
 
-    cal_btn = ttk.Button(root, text="Toggle Calibration", command=toggle_cal)
-    cal_btn.pack()
+    # Top frame for control buttons
+    top_frame = ttk.Frame(root)
+    top_frame.pack(fill=tk.X, padx=5, pady=5)
 
-    rec_btn = ttk.Button(root, text="Start Recording", command=toggle_record)
-    rec_btn.pack()
+    cal_btn = ttk.Button(top_frame, text="Toggle Calibration", command=toggle_cal)
+    cal_btn.pack(side=tk.LEFT, padx=5)
+
+    rec_btn = ttk.Button(top_frame, text="Start Recording", command=toggle_record)
+    rec_btn.pack(side=tk.LEFT, padx=5)
+
+    # Middle frame for controller visualizations
+    middle_frame = ttk.Frame(root)
+    middle_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    # Left joystick canvas
+    left_frame = ttk.LabelFrame(middle_frame, text="Left Stick (Movement)")
+    left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+    
+    left_canvas = tk.Canvas(left_frame, width=200, height=200, bg="white", highlightthickness=1)
+    left_canvas.pack(padx=10, pady=10)
+
+    # Right joystick canvas
+    right_frame = ttk.LabelFrame(middle_frame, text="Right Stick (Look)")
+    right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+    
+    right_canvas = tk.Canvas(right_frame, width=200, height=200, bg="white", highlightthickness=1)
+    right_canvas.pack(padx=10, pady=10)
+
+    # Claw canvas
+    claw_frame = ttk.LabelFrame(middle_frame, text="Claw Control")
+    claw_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+    
+    claw_canvas = tk.Canvas(claw_frame, width=200, height=200, bg="white", highlightthickness=1)
+    claw_canvas.pack(padx=10, pady=10)
+
+    # Status frame (for future additions)
+    status_frame = ttk.LabelFrame(root, text="Status")
+    status_frame.pack(fill=tk.X, padx=5, pady=5)
+
+    status_label = ttk.Label(status_frame, text="Ready", font=("Arial", 10))
+    status_label.pack(padx=10, pady=5)
+
+    # Update function for controller visualizations
+    def update_displays():
+        # Update left joystick (LX, LY)
+        left_canvas.delete("all")
+        draw_joystick(left_canvas, 100, 100, 80, axes["LX"], axes["LY"])
+        
+        # Update right joystick (RX, RY)
+        right_canvas.delete("all")
+        draw_joystick(right_canvas, 100, 100, 80, axes["RX"], axes["RY"])
+        
+        # Update claw
+        claw_canvas.delete("all")
+        draw_claw(claw_canvas, 100, 100, 50, claw_pos)
+        
+        # Update status label
+        cal_status = "CAL" if calibrate else "---"
+        rec_status = "REC" if recording else "---"
+        status_label.config(text=f"Calibrate: {cal_status}  |  Recording: {rec_status}  |  LT: {axes['LT']:.2f}  RX: {axes['RX']:.2f}")
+        
+        root.after(50, update_displays)
+
+    root.after(50, update_displays)
 
     # start the video display pipeline on app start if enabled
     global video
