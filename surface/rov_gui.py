@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 
-def draw_joystick(canvas, x, y, radius, lx, ly):
+def draw_joystick(canvas, x, y, radius, lx, ly, deadzone):
     """Draw a joystick visualization on the canvas.
     
     Args:
@@ -10,10 +10,17 @@ def draw_joystick(canvas, x, y, radius, lx, ly):
         x, y: center position
         radius: size of the joystick circle
         lx, ly: normalized axis values (-1 to 1)
+        deadzone: deadzone threshold (0 to 1)
     """
     # Draw circle background
     canvas.create_oval(x - radius, y - radius, x + radius, y + radius, 
                        fill="lightgray", outline="black", width=2)
+    
+    # Draw deadzone circle (thin red circle)
+    deadzone_radius = (radius - 10) * deadzone
+    canvas.create_oval(x - deadzone_radius, y - deadzone_radius, 
+                       x + deadzone_radius, y + deadzone_radius,
+                       outline="blue", width=1)
     
     # Draw center
     canvas.create_oval(x - 5, y - 5, x + 5, y + 5, fill="black", outline="black")

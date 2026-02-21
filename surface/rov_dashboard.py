@@ -12,7 +12,7 @@ VIDEO_ENABLED = True  # Global flag to enable/disable video
 PI5_IP = "192.168.2.204"
 PI5_PORT = 9000
 
-DEADZONE = 0.2
+DEADZONE = 0.2    # Deadzone for the sticks
 TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
 CLAW_RATE = 0.30  # claw open/close rate in units per second
 controller_remap = False  # Set to True to remap Logitech controller values to Xbox ranges. Keep False for production
@@ -21,7 +21,8 @@ controller_remap = False  # Set to True to remap Logitech controller values to X
 # State Variables updated as we run
 ###############################################################################
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
+axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0} # This is the object that is updated, compute() operates on it
+axes_raw = {"LX":0,"LY":0,"RX":0,"RY":0}  # Raw normalized values before deadzone, for GUI display
 calibrate = False
 recording = False
 record_proc = None
@@ -62,10 +63,22 @@ def process(e):
         # Apply controller remapping if enabled
         state = remap(e.state, e.code) if controller_remap else e.state
         
-        if e.code=="ABS_X": axes["LX"]=deadzone(norm(state))
-        if e.code=="ABS_Y": axes["LY"]=deadzone(-norm(state))
-        if e.code=="ABS_RX": axes["RX"]=deadzone(norm(state))
-        if e.code=="ABS_RY": axes["RY"]=deadzone(-norm(state))
+        if e.code=="ABS_X":
+            normed = norm(state)
+            axes_raw["LX"] = normed
+            axes["LX"] = deadzone(normed)
+        if e.code=="ABS_Y":
+            normed = -norm(state)
+            axes_raw["LY"] = normed
+            axes["LY"] = deadzone(normed)
+        if e.code=="ABS_RX":
+            normed = norm(state)
+            axes_raw["RX"] = normed
+            axes["RX"] = deadzone(normed)
+        if e.code=="ABS_RY":
+            normed = -norm(state)
+            axes_raw["RY"] = normed
+            axes["RY"] = deadzone(normed)
         if e.code=="ABS_Z": axes["LT"]=e.state/255
         if e.code=="ABS_RZ": axes["RT"]=e.state/255
 
@@ -205,13 +218,13 @@ def main():
 
     # Update function for controller visualizations
     def update_displays():
-        # Update left joystick (LX, LY)
+        # Update left joystick (LX, LY) - use raw values to show deadzone movement
         left_canvas.delete("all")
-        draw_joystick(left_canvas, 100, 100, 80, axes["LX"], axes["LY"])
+        draw_joystick(left_canvas, 100, 100, 80, axes_raw["LX"], axes_raw["LY"], DEADZONE)
         
-        # Update right joystick (RX, RY)
+        # Update right joystick (RX, RY) - use raw values to show deadzone movement
         right_canvas.delete("all")
-        draw_joystick(right_canvas, 100, 100, 80, axes["RX"], axes["RY"])
+        draw_joystick(right_canvas, 100, 100, 80, axes_raw["RX"], axes_raw["RY"], DEADZONE)
         
         # Update claw
         claw_canvas.delete("all")
