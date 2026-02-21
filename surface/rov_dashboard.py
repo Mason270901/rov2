@@ -267,25 +267,25 @@ def main():
 
     # Middle frame for controller visualizations
     middle_frame = ttk.Frame(root)
-    middle_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+    middle_frame.pack(fill=tk.X, padx=5, pady=5)
 
     # Left joystick canvas
     left_frame = ttk.LabelFrame(middle_frame, text="Left Stick (Movement)")
-    left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+    left_frame.pack(side=tk.LEFT, padx=5)
     
     left_canvas = tk.Canvas(left_frame, width=200, height=200, bg="white", highlightthickness=1)
     left_canvas.pack(padx=10, pady=10)
 
     # Right joystick canvas
     right_frame = ttk.LabelFrame(middle_frame, text="Right Stick (Look)")
-    right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+    right_frame.pack(side=tk.LEFT, padx=5)
     
     right_canvas = tk.Canvas(right_frame, width=200, height=200, bg="white", highlightthickness=1)
     right_canvas.pack(padx=10, pady=10)
 
     # Claw canvas
     claw_frame = ttk.LabelFrame(middle_frame, text="Claw Control")
-    claw_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+    claw_frame.pack(side=tk.LEFT, padx=5)
     
     claw_canvas = tk.Canvas(claw_frame, width=200, height=200, bg="white", highlightthickness=1)
     claw_canvas.pack(padx=10, pady=10)
