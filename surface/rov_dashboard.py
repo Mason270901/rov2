@@ -17,6 +17,9 @@ TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
 CLAW_RATE = 0.30  # claw open/close rate in units per second
 controller_remap = False  # Set to True to remap Logitech controller values to Xbox ranges. Keep False for production
 
+# Current estimation based on thruster usage
+MAX_CURRENT_PER_THRUSTER = 6.0  # Amps per thruster at full throttle
+
 
 # State Variables updated as we run
 ###############################################################################
@@ -30,7 +33,8 @@ video = None
 rec_btn = None
 claw_pos = 0.5
 claw_last_update = time.time()
-
+estimated_current = 0.0  # Estimated current draw in Amps
+thruster = [0.0] * 6  # Individual thruster values: UL, FL, BL, UR, FR, BR
 
 
 # Max raw controller values from the Xbox controller:
@@ -43,6 +47,31 @@ def remap(value, code):
         return value
     # Convert from 0-255 range (centered at 127) to -32767 to 32767 range (centered at 0)
     return int(((value - 127) / 128) * 32767)
+
+
+def estimate_current():
+    """Estimate total current draw based on thruster mixing from arduino.ino"""
+    global estimated_current, thruster
+    surge = axes["LY"]
+    sway = axes["LX"]
+    yaw = axes["RX"]
+    heave = axes["RY"]
+    
+    # Calculate thruster values using the same mixing as Arduino
+    thruster[0] = surge + sway + yaw  # UL
+    thruster[1] = surge - sway + yaw  # FL
+    thruster[2] = surge - sway - yaw  # BL
+    thruster[3] = surge + sway - yaw  # UR
+    thruster[4] = heave               # FR
+    thruster[5] = heave               # BR
+    
+    # Constrain each thruster to [-1.0, 1.0] like Arduino does
+    thruster = [max(-1.0, min(1.0, val)) for val in thruster]
+    
+    # Current is proportional to sum of absolute thruster values
+    estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER
+    
+    # print(estimated_current)
 
 
 # 16 bit normalize
@@ -104,6 +133,8 @@ def compute():
     
     # Clamp between 0 and 1
     claw_pos = max(0, min(1, claw_pos))
+
+    estimate_current()
     
     return {
         "surge": axes["LY"],
