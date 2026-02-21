@@ -1,8 +1,20 @@
 import tkinter as tk
 from tkinter import ttk
 
+# GUI SETTINGS
+###############################################################################
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
 
-def draw_joystick(canvas, x, y, radius, lx, ly, deadzone):
+STICK_RADIUS = 80                           # radius of outermost gray circle
+STICK_BOX    = 170                          # Size of the white box (around stick)
+STICK_CENTER = STICK_BOX/2                  # Offset of the center of the gray circle within white box
+
+CLAW_SIZE    = 50                           # size of blue box
+CLAW_BOX     = 170                          # Size of the white box (around claw)
+CLAW_CENTER  = CLAW_BOX/2                   # Offset of the blue claw box inside the white box
+
+def draw_joystick(canvas, lx, ly, deadzone):
     """Draw a joystick visualization on the canvas.
     
     Args:
@@ -12,6 +24,9 @@ def draw_joystick(canvas, x, y, radius, lx, ly, deadzone):
         lx, ly: normalized axis values (-1 to 1)
         deadzone: deadzone threshold (0 to 1)
     """
+    radius = STICK_RADIUS
+    x = y = STICK_CENTER
+
     # Draw circle background
     canvas.create_oval(x - radius, y - radius, x + radius, y + radius, 
                        fill="lightgray", outline="black", width=2)
@@ -35,7 +50,7 @@ def draw_joystick(canvas, x, y, radius, lx, ly, deadzone):
     canvas.create_line(x, y, stick_x, stick_y, fill="blue", width=2)
 
 
-def draw_claw(canvas, x, y, size, claw_position):
+def draw_claw(canvas, claw_position):
     """Draw a claw control visualization.
     
     Args:
@@ -44,6 +59,10 @@ def draw_claw(canvas, x, y, size, claw_position):
         size: size of the claw visualization
         claw_position: 0 (closed) to 1 (open)
     """
+
+    size = CLAW_SIZE
+    x = y = CLAW_CENTER
+
     # Draw claw base
     canvas.create_rectangle(x - size, y - size, x + size, y + size,
                            fill="lightblue", outline="black", width=2)
@@ -76,7 +95,7 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     """
     root = tk.Tk()
     root.title("ROV Dashboard")
-    root.geometry("1000x600")
+    root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
     # Top frame for control buttons
     top_frame = ttk.Frame(root)
@@ -96,21 +115,21 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     left_frame = ttk.LabelFrame(middle_frame, text="Left Stick (Movement)")
     left_frame.pack(side=tk.LEFT, padx=5)
     
-    left_canvas = tk.Canvas(left_frame, width=200, height=200, bg="white", highlightthickness=1)
+    left_canvas = tk.Canvas(left_frame, width=STICK_BOX, height=STICK_BOX, bg="white", highlightthickness=1)
     left_canvas.pack(padx=10, pady=10)
 
     # Right joystick canvas
     right_frame = ttk.LabelFrame(middle_frame, text="Right Stick (Look)")
     right_frame.pack(side=tk.LEFT, padx=5)
     
-    right_canvas = tk.Canvas(right_frame, width=200, height=200, bg="white", highlightthickness=1)
+    right_canvas = tk.Canvas(right_frame, width=STICK_BOX, height=STICK_BOX, bg="white", highlightthickness=1)
     right_canvas.pack(padx=10, pady=10)
 
     # Claw canvas
     claw_frame = ttk.LabelFrame(middle_frame, text="Claw Control")
     claw_frame.pack(side=tk.LEFT, padx=5)
     
-    claw_canvas = tk.Canvas(claw_frame, width=200, height=200, bg="white", highlightthickness=1)
+    claw_canvas = tk.Canvas(claw_frame, width=CLAW_BOX, height=CLAW_BOX, bg="white", highlightthickness=1)
     claw_canvas.pack(padx=10, pady=10)
 
     # Status frame (for future additions)

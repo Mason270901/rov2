@@ -220,15 +220,15 @@ def main():
     def update_displays():
         # Update left joystick (LX, LY) - use raw values to show deadzone movement
         left_canvas.delete("all")
-        draw_joystick(left_canvas, 100, 100, 80, axes_raw["LX"], axes_raw["LY"], DEADZONE)
+        draw_joystick(left_canvas, axes_raw["LX"], axes_raw["LY"], DEADZONE)
         
         # Update right joystick (RX, RY) - use raw values to show deadzone movement
         right_canvas.delete("all")
-        draw_joystick(right_canvas, 100, 100, 80, axes_raw["RX"], axes_raw["RY"], DEADZONE)
+        draw_joystick(right_canvas, axes_raw["RX"], axes_raw["RY"], DEADZONE)
         
         # Update claw
         claw_canvas.delete("all")
-        draw_claw(claw_canvas, 100, 100, 50, claw_pos)
+        draw_claw(claw_canvas, claw_pos)
         
         # Update status label
         cal_status = "CAL" if calibrate else "---"
