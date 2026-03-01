@@ -271,7 +271,9 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     status_frame = ttk.LabelFrame(root, text="Status")
     status_frame.pack(fill=tk.X, padx=5, pady=5)
 
-    status_label = ttk.Label(status_frame, text="Ready", font=("Arial", 10))
-    status_label.pack(padx=10, pady=5)
+    status_label = tk.Label(status_frame, text="Ready", font=("Arial", 10))
+    status_label.pack(side=tk.LEFT, padx=(10, 0), pady=5)
+    speed_label = tk.Label(status_frame, text="", font=("Arial", 10, "bold"))
+    speed_label.pack(side=tk.LEFT, padx=(4, 10), pady=5)
 
-    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, rec_btn
+    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn

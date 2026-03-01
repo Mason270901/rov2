@@ -285,7 +285,7 @@ def main():
     global video, rec_btn, recording, record_proc
     
     # Set up the GUI
-    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, rec_btn = setup_gui(toggle_cal, toggle_record)
+    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn = setup_gui(toggle_cal, toggle_record)
 
     # Update function for controller visualizations
     def update_displays():
@@ -312,7 +312,18 @@ def main():
         # Update status label
         cal_status = "CAL" if calibrate else "---"
         rec_status = "REC" if recording else "---"
-        status_label.config(text=f"Calibrate: {cal_status}  |  Recording: {rec_status}  |  LT: {axes['LT']:.2f}  RX: {axes['RX']:.2f}")
+        speed_names  = ["SLOW", "MED", "FAST"]
+        speed_colors = ["#4da6ff", "#cc6600", "red"]
+        speed_name  = speed_names[speed_mode_index]
+        speed_color = speed_colors[speed_mode_index]
+        status_label.config(
+            text=f"Calibrate: {cal_status}  |  Recording: {rec_status}  |  LT: {axes['LT']:.2f}  RX: {axes['RX']:.2f}  |  Speed:",
+            fg="black"
+        )
+        speed_label.config(
+            text=f"{speed_name} ({int(SPEED_MODES[speed_mode_index] * 100)}%)",
+            fg=speed_color
+        )
         
         root.after(50, update_displays)
 
