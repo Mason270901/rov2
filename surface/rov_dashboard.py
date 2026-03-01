@@ -57,6 +57,7 @@ def remap(value, code):
 def estimate_current():
     """Estimate total current draw based on thruster mixing from arduino.ino"""
     global estimated_current, thruster
+    speed = SPEED_MODES[speed_mode_index]
     surge = axes["LY"]
     sway = axes["LX"]
     yaw = axes["RX"]
@@ -66,12 +67,12 @@ def estimate_current():
     # Clamped inline so the list is never in a partially-unclamped state
     # (avoids a one-frame glitch when the display thread reads between assignments).
     def clamp(v): return max(-1.0, min(1.0, v))
-    thruster[0] = clamp(surge + sway + yaw)  # UL
-    thruster[1] = clamp(surge - sway + yaw)  # FL
-    thruster[2] = clamp(surge - sway - yaw)  # BL
-    thruster[3] = clamp(surge + sway - yaw)  # UR
-    thruster[4] = clamp(heave)               # FR
-    thruster[5] = clamp(heave)               # BR
+    thruster[0] = clamp((surge + sway + yaw) * speed)  # UL
+    thruster[1] = clamp((surge - sway + yaw) * speed)  # FL
+    thruster[2] = clamp((surge - sway - yaw) * speed)  # BL
+    thruster[3] = clamp((surge + sway - yaw) * speed)  # UR
+    thruster[4] = clamp(heave * speed)                  # FR
+    thruster[5] = clamp(heave * speed)                  # BR
     
     # Current is proportional to sum of absolute thruster values
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER
