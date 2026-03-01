@@ -20,6 +20,9 @@ controller_remap = False  # Set to True to remap Logitech controller values to X
 # Current estimation based on thruster usage
 MAX_CURRENT_PER_THRUSTER = 6.0  # Amps per thruster at full throttle
 
+# See SPEED_MODES below
+speed_mode_index = 0  # Start at this speed (0 = slow, 1 = medium, 2 = full or fast)
+
 
 # State Variables updated as we run
 ###############################################################################
@@ -35,6 +38,8 @@ claw_pos = 0.5
 claw_last_update = time.time()
 estimated_current = 0.0  # Estimated current draw in Amps
 thruster = [0.0] * 6  # Individual thruster values: UL, FL, BL, UR, FR, BR
+SPEED_MODES = [0.3, 0.5, 1.0]  # Available speed multipliers (slow, medium, full or fast)
+
 
 
 # Max raw controller values from the Xbox controller:
@@ -86,6 +91,35 @@ def deadzone(v):
 
 # handles each xbox input
 def process(e):
+    # Wired Xbox 360 controller e.code values:
+    #
+    # Sticks (ev_type="Absolute", state: -32767 to 32767, up/left is negative):
+    #   ABS_X   — Left stick X  (left: -32767, right: +32767)
+    #   ABS_Y   — Left stick Y  (up: -32767, down: +32767)
+    #   ABS_RX  — Right stick X (left: -32767, right: +32767)
+    #   ABS_RY  — Right stick Y (up: -32767, down: +32767)
+    #
+    # Triggers (ev_type="Absolute", state: 0 to 255):
+    #   ABS_Z   — Left trigger  LT (released: 0, fully pressed: 255)
+    #   ABS_RZ  — Right trigger RT (released: 0, fully pressed: 255)
+    #
+    # D-pad (ev_type="Absolute"):
+    #   ABS_HAT0X — D-pad X (left: -1, center: 0, right: +1)
+    #   ABS_HAT0Y — D-pad Y (up: -1, center: 0, down: +1)
+    #
+    # Buttons (ev_type="Key", state: 0=released, 1=pressed):
+    #   BTN_SOUTH  — A
+    #   BTN_EAST   — B
+    #   BTN_WEST   — X
+    #   BTN_NORTH  — Y
+    #   BTN_TL     — Left bumper  (LB)
+    #   BTN_TR     — Right bumper (RB)
+    #   BTN_SELECT — Back
+    #   BTN_START  — Start
+    #   BTN_THUMBL — Left stick click  (LS)
+    #   BTN_THUMBR — Right stick click (RS)
+    #   BTN_MODE   — Xbox/Guide button
+
     if e.ev_type=="Absolute":
         # print(e.code, e.state)
 
@@ -110,6 +144,10 @@ def process(e):
             axes["RY"] = deadzone(normed)
         if e.code=="ABS_Z": axes["LT"]=e.state/255
         if e.code=="ABS_RZ": axes["RT"]=e.state/255
+        if e.code=="ABS_HAT0Y" and e.state != 0:
+            global speed_mode_index
+            # D-pad up (state=-1) increases speed, down (state=+1) decreases speed
+            speed_mode_index = max(0, min(len(SPEED_MODES) - 1, speed_mode_index - e.state))
 
 # takes the axes object, and converts it to a format to send over the wire
 def compute():
@@ -135,12 +173,14 @@ def compute():
     claw_pos = max(0, min(1, claw_pos))
 
     estimate_current()
-    
+
+    speed = SPEED_MODES[speed_mode_index]
+
     return {
-        "surge": axes["LY"],
-        "sway": axes["LX"],
-        "yaw": axes["RX"],
-        "heave": axes["RY"],
+        "surge": axes["LY"] * speed,
+        "sway": axes["LX"] * speed,
+        "yaw": axes["RX"] * speed,
+        "heave": axes["RY"] * speed,
         "claw_pos": claw_pos,
         "calibrate": calibrate
     }
