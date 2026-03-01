@@ -159,3 +159,9 @@ python3 -m pip install -r surface/surface_requirements.txt
 ```
 
 Note, if you are in vscode, sometimes it will auto insert you into venv, if this happens, running `python3 -m venv venv2` will corrupt venv2 from the start.
+
+# OSX
+I had to run this on OSX to launch the python surface
+```bash
+brew install python-tk@3.13
+```
