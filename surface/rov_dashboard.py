@@ -66,7 +66,7 @@ def estimate_current():
         # In test mode only the selected motor is driven, all others are zero.
         for i in range(6):
             thruster[i] = 0.0
-        thruster[test_motor_index] = clamp(axes["LX"] * speed)
+        thruster[test_motor_index] = clamp(axes["LY"] * speed)
     else:
         surge = axes["LY"]
         sway = axes["LX"]
@@ -198,6 +198,8 @@ def compute():
     }
 
 def fmt(c):
+    # TM encoding: 0 = test mode off, 1-6 = test mode on, motor index 0-5
+    tm = (c['test_motor'] + 1) if c['test_mode'] else 0
     return (
         f"SURGE {c['surge']:.3f} "
         f"SWAY {c['sway']:.3f} "
@@ -205,8 +207,7 @@ def fmt(c):
         f"HEAVE {c['heave']:.3f} "
         f"CLAW_POS {c['claw_pos']:.3f} "
         f"CALIBRATE {int(c['calibrate'])} "
-        f"TEST_MODE {int(c['test_mode'])} "
-        f"TEST_MOTOR {c['test_motor']}\n"
+        f"TM {tm}\n"
     )
 
 def sender():

@@ -85,8 +85,10 @@ void parseLine(const String &line) {
   heave     = getValue(line, "HEAVE");
   clawPos   = getValue(line, "CLAW_POS");
   calibrate = (getValue(line, "CALIBRATE") > 0.5);
-  testMode  = (getValue(line, "TEST_MODE")  > 0.5);
-  testMotor = (int)getValue(line, "TEST_MOTOR");
+  // TM: 0 = off, 1-6 = test mode on with motor index 0-5
+  int tm = (int)getValue(line, "TM");
+  testMode  = (tm > 0);
+  testMotor = (tm > 0) ? (tm - 1) : 0;
 }
 
 float getValue(const String &line, const String &key) {
@@ -103,9 +105,9 @@ void updateThrusters() {
   float t[NUM_THRUSTERS];
 
   if (testMode && testMotor >= 0 && testMotor < NUM_THRUSTERS) {
-    // Test mode: zero all motors, drive only the selected one with LX (sway)
+    // Test mode: zero all motors, drive only the selected one with LY (surge)
     for (int i = 0; i < NUM_THRUSTERS; i++) t[i] = 0.0;
-    t[testMotor] = constrain(sway, -1.0, 1.0);
+    t[testMotor] = constrain(surge, -1.0, 1.0);
   } else {
     t[0] = surge + sway + yaw;  // UL
     t[1] = surge - sway + yaw;  // FL
