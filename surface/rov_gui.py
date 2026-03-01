@@ -202,15 +202,19 @@ def draw_current(canvas, amps):
                        anchor="n", font=("Arial", 8, "bold"), fill="black")
 
 
-def setup_gui(toggle_cal_callback, toggle_record_callback):
+def setup_gui(toggle_cal_callback, toggle_record_callback, toggle_test_mode_callback, set_test_motor_callback):
     """Set up the GUI and return all necessary components.
     
     Args:
         toggle_cal_callback: callback function for calibration toggle button
         toggle_record_callback: callback function for record toggle button
+        toggle_test_mode_callback: callback function for test mode toggle button
+        set_test_motor_callback: callback(index) to select which motor to drive in test mode
     
     Returns:
-        tuple: (root, left_canvas, right_canvas, claw_canvas, status_label, rec_btn)
+        tuple: (root, left_canvas, right_canvas, claw_canvas, thruster_canvas,
+                current_canvas, status_label, speed_label, rec_btn,
+                test_mode_btn, motor_btns)
     """
     root = tk.Tk()
     root.title("ROV Dashboard")
@@ -225,6 +229,30 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
 
     rec_btn = ttk.Button(top_frame, text="Start Recording", command=toggle_record_callback)
     rec_btn.pack(side=tk.LEFT, padx=5)
+
+    # Test mode frame
+    test_frame = ttk.Frame(root)
+    test_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+
+    test_mode_btn = tk.Button(
+        test_frame, text="Test Mode: OFF",
+        command=toggle_test_mode_callback,
+        bg="#d9d9d9", font=("Arial", 9, "bold"), relief="raised"
+    )
+    test_mode_btn.pack(side=tk.LEFT, padx=5)
+
+    tk.Label(test_frame, text="Motor:", font=("Arial", 9)).pack(side=tk.LEFT, padx=(10, 2))
+
+    motor_names = ["UL", "FL", "BL", "UR", "FR", "BR"]
+    motor_btns = []
+    for i, name in enumerate(motor_names):
+        btn = tk.Button(
+            test_frame, text=f"{i}:{name}",
+            command=lambda idx=i: set_test_motor_callback(idx),
+            bg="#d9d9d9", font=("Arial", 9), width=5, relief="raised"
+        )
+        btn.pack(side=tk.LEFT, padx=2)
+        motor_btns.append(btn)
 
     # Middle frame for controller visualizations
     middle_frame = ttk.Frame(root)
@@ -276,4 +304,4 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     speed_label = tk.Label(status_frame, text="", font=("Arial", 10, "bold"))
     speed_label.pack(side=tk.LEFT, padx=(4, 10), pady=5)
 
-    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn
+    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn, test_mode_btn, motor_btns

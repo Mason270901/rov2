@@ -39,6 +39,8 @@ claw_last_update = time.time()
 estimated_current = 0.0  # Estimated current draw in Amps
 thruster = [0.0] * 6  # Individual thruster values: UL, FL, BL, UR, FR, BR
 SPEED_MODES = [0.3, 0.5, 1.0]  # Available speed multipliers (slow, medium, full or fast)
+test_mode = False        # When True, a single motor is driven by LX; all others zeroed
+test_motor_index = 0     # Index of the motor to drive in test mode (0-5: UL, FL, BL, UR, FR, BR)
 
 
 
@@ -57,22 +59,30 @@ def remap(value, code):
 def estimate_current():
     """Estimate total current draw based on thruster mixing from arduino.ino"""
     global estimated_current, thruster
-    surge = axes["LY"]
-    sway = axes["LX"]
-    yaw = axes["RX"]
-    heave = axes["RY"]
-    
-    # Calculate thruster values using the same mixing as Arduino.
-    # Clamped inline so the list is never in a partially-unclamped state
-    # (avoids a one-frame glitch when the display thread reads between assignments).
+    speed = SPEED_MODES[speed_mode_index]
     def clamp(v): return max(-1.0, min(1.0, v))
-    thruster[0] = clamp(surge + sway + yaw)  # UL
-    thruster[1] = clamp(surge - sway + yaw)  # FL
-    thruster[2] = clamp(surge - sway - yaw)  # BL
-    thruster[3] = clamp(surge + sway - yaw)  # UR
-    thruster[4] = clamp(heave)               # FR
-    thruster[5] = clamp(heave)               # BR
-    
+
+    if test_mode:
+        # In test mode only the selected motor is driven, all others are zero.
+        for i in range(6):
+            thruster[i] = 0.0
+        thruster[test_motor_index] = clamp(axes["LX"] * speed)
+    else:
+        surge = axes["LY"]
+        sway = axes["LX"]
+        yaw = axes["RX"]
+        heave = axes["RY"]
+
+        # Calculate thruster values using the same mixing as Arduino.
+        # Clamped inline so the list is never in a partially-unclamped state
+        # (avoids a one-frame glitch when the display thread reads between assignments).
+        thruster[0] = clamp((surge + sway + yaw) * speed)  # UL
+        thruster[1] = clamp((surge - sway + yaw) * speed)  # FL
+        thruster[2] = clamp((surge - sway - yaw) * speed)  # BL
+        thruster[3] = clamp((surge + sway - yaw) * speed)  # UR
+        thruster[4] = clamp(heave * speed)                  # FR
+        thruster[5] = clamp(heave * speed)                  # BR
+
     # Current is proportional to sum of absolute thruster values
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER
     
@@ -182,7 +192,9 @@ def compute():
         "yaw": axes["RX"] * speed,
         "heave": axes["RY"] * speed,
         "claw_pos": claw_pos,
-        "calibrate": calibrate
+        "calibrate": calibrate,
+        "test_mode": test_mode,
+        "test_motor": test_motor_index
     }
 
 def fmt(c):
@@ -192,7 +204,9 @@ def fmt(c):
         f"YAW {c['yaw']:.3f} "
         f"HEAVE {c['heave']:.3f} "
         f"CLAW_POS {c['claw_pos']:.3f} "
-        f"CALIBRATE {int(c['calibrate'])}\n"
+        f"CALIBRATE {int(c['calibrate'])} "
+        f"TEST_MODE {int(c['test_mode'])} "
+        f"TEST_MOTOR {c['test_motor']}\n"
     )
 
 def sender():
@@ -212,6 +226,14 @@ threading.Thread(target=sender, daemon=True).start()
 def toggle_cal():
     global calibrate
     calibrate = not calibrate
+
+def toggle_test_mode():
+    global test_mode
+    test_mode = not test_mode
+
+def set_test_motor(index):
+    global test_motor_index
+    test_motor_index = index
 
 def toggle_record():
     global recording, record_proc, rec_btn
@@ -285,7 +307,7 @@ def main():
     global video, rec_btn, recording, record_proc
     
     # Set up the GUI
-    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn = setup_gui(toggle_cal, toggle_record)
+    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn, test_mode_btn, motor_btns = setup_gui(toggle_cal, toggle_record, toggle_test_mode, set_test_motor)
 
     # Update function for controller visualizations
     def update_displays():
@@ -308,6 +330,18 @@ def main():
         # Update current meter
         current_canvas.delete("all")
         draw_current(current_canvas, estimated_current)
+
+        # Update test mode button and motor selector buttons
+        test_mode_btn.config(
+            text=f"Test Mode: {'ON' if test_mode else 'OFF'}",
+            bg="#ff6600" if test_mode else "#d9d9d9"
+        )
+        motor_names = ["UL", "FL", "BL", "UR", "FR", "BR"]
+        for i, btn in enumerate(motor_btns):
+            if test_mode and i == test_motor_index:
+                btn.config(bg="#4da6ff", relief="sunken")
+            else:
+                btn.config(bg="#d9d9d9", relief="raised")
 
         # Update status label
         cal_status = "CAL" if calibrate else "---"

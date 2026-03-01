@@ -11,6 +11,8 @@ Servo claw;
 float surge = 0, sway = 0, yaw = 0, heave = 0;
 float clawPos = 0.5;
 bool calibrate = false;
+bool testMode = false;  // When true, only the selected motor is driven
+int  testMotor = 0;     // Index of the motor to drive in test mode (0-5)
 
 // const float THRUSTER_ALPHA = 0.02;
 
@@ -83,6 +85,8 @@ void parseLine(const String &line) {
   heave     = getValue(line, "HEAVE");
   clawPos   = getValue(line, "CLAW_POS");
   calibrate = (getValue(line, "CALIBRATE") > 0.5);
+  testMode  = (getValue(line, "TEST_MODE")  > 0.5);
+  testMotor = (int)getValue(line, "TEST_MOTOR");
 }
 
 float getValue(const String &line, const String &key) {
@@ -98,12 +102,18 @@ float getValue(const String &line, const String &key) {
 void updateThrusters() {
   float t[NUM_THRUSTERS];
 
-  t[0] = surge + sway + yaw;  // UL
-  t[1] = surge - sway + yaw;  // FL
-  t[2] = surge - sway - yaw;  // BL
-  t[3] = surge + sway - yaw;  // UR
-  t[4] = heave;               // FR
-  t[5] = heave;               // BR
+  if (testMode && testMotor >= 0 && testMotor < NUM_THRUSTERS) {
+    // Test mode: zero all motors, drive only the selected one with LX (sway)
+    for (int i = 0; i < NUM_THRUSTERS; i++) t[i] = 0.0;
+    t[testMotor] = constrain(sway, -1.0, 1.0);
+  } else {
+    t[0] = surge + sway + yaw;  // UL
+    t[1] = surge - sway + yaw;  // FL
+    t[2] = surge - sway - yaw;  // BL
+    t[3] = surge + sway - yaw;  // UR
+    t[4] = heave;               // FR
+    t[5] = heave;               // BR
+  }
 
   for (int i = 0; i < NUM_THRUSTERS; i++) {
     t[i] = constrain(t[i], -1.0, 1.0);
