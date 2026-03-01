@@ -77,12 +77,12 @@ void readSerial() {
 }
 
 void parseLine(const String &line) {
-  surge     = getValue(line, "SURGE");
-  sway      = getValue(line, "SWAY");
-  yaw       = getValue(line, "YAW");
-  heave     = getValue(line, "HEAVE");
-  clawPos   = getValue(line, "CLAW_POS");
-  calibrate = (getValue(line, "CALIBRATE") > 0.5);
+  surge     = getValue(line, "SG");
+  sway      = getValue(line, "SW");
+  yaw       = getValue(line, "YA");
+  heave     = getValue(line, "HE");
+  clawPos   = getValue(line, "CL");
+  calibrate = (getValue(line, "CA") > 0.5);
 }
 
 float getValue(const String &line, const String &key) {

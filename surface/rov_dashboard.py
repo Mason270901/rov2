@@ -187,12 +187,12 @@ def compute():
 
 def fmt(c):
     return (
-        f"SURGE {c['surge']:.3f} "
-        f"SWAY {c['sway']:.3f} "
-        f"YAW {c['yaw']:.3f} "
-        f"HEAVE {c['heave']:.3f} "
-        f"CLAW_POS {c['claw_pos']:.3f} "
-        f"CALIBRATE {int(c['calibrate'])}\n"
+        f"SG {c['surge']:.3f} "
+        f"SW {c['sway']:.3f} "
+        f"YA {c['yaw']:.3f} "
+        f"HE {c['heave']:.3f} "
+        f"CL {c['claw_pos']:.3f} "
+        f"CA {int(c['calibrate'])}\n"
     )
 
 def sender():
