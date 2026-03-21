@@ -102,8 +102,8 @@ void updateThrusters() {
   t[1] = surge - sway + yaw;  // FL
   t[2] = surge - sway - yaw;  // BL
   t[3] = surge + sway - yaw;  // UR
-  t[4] = heave;               // FR
-  t[5] = heave;               // BR
+  t[4] = -heave;               // UL
+  t[5] = heave;              // UR
 
   for (int i = 0; i < NUM_THRUSTERS; i++) {
     t[i] = constrain(t[i], -1.0, 1.0);
