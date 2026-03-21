@@ -39,7 +39,7 @@ claw_last_update = time.time()
 estimated_current = 0.0  # Estimated current draw in Amps
 thruster = [0.0] * 6  # Individual thruster values: UL, FL, BL, UR, FR, BR
 SPEED_MODES = [0.3, 0.5, 1.0]  # Available speed multipliers (slow, medium, full or fast)
-
+HEAVE_SPEED_MODES = [0.4, 0.4, 0.4]
 
 
 # Max raw controller values from the Xbox controller:
@@ -176,12 +176,13 @@ def compute():
     estimate_current()
 
     speed = SPEED_MODES[speed_mode_index]
+    hspeed = HEAVE_SPEED_MODES[speed_mode_index]
 
     return {
         "surge": axes["LY"] * speed,
         "sway": axes["LX"] * speed,
         "yaw": axes["RX"] * speed,
-        "heave": axes["RY"] * speed,
+        "heave": axes["RY"] * hspeed,
         "claw_pos": claw_pos,
         "calibrate": calibrate
     }
@@ -322,7 +323,7 @@ def main():
             fg="black"
         )
         speed_label.config(
-            text=f"{speed_name} ({int(SPEED_MODES[speed_mode_index] * 100)}%)",
+            text=f"{speed_name} ({int(SPEED_MODES[speed_mode_index] * 100)}%) heave ({int(HEAVE_SPEED_MODES[speed_mode_index] * 100)}%)",
             fg=speed_color
         )
         
