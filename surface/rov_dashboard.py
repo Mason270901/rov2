@@ -58,21 +58,21 @@ def estimate_current():
     """Estimate total current draw based on thruster mixing from arduino.ino"""
     global estimated_current, thruster
     speed = SPEED_MODES[speed_mode_index]
-    surge = axes["LY"]
-    sway = axes["LX"]
-    yaw = axes["RX"]
-    heave = axes["RY"]
+    surge = axes["LY"] # forward and back
+    sway = axes["LX"]  # straif lr
+    yaw = axes["RX"]   # look lr
+    heave = axes["RY"] # sink or float
     
     # Calculate thruster values using the same mixing as Arduino.
     # Clamped inline so the list is never in a partially-unclamped state
     # (avoids a one-frame glitch when the display thread reads between assignments).
     def clamp(v): return max(-1.0, min(1.0, v))
-    thruster[0] = clamp((surge + sway + yaw) * speed)  # UL
-    thruster[1] = clamp((surge - sway + yaw) * speed)  # FL
-    thruster[2] = clamp((surge - sway - yaw) * speed)  # BL
-    thruster[3] = clamp((surge + sway - yaw) * speed)  # UR
-    thruster[4] = clamp(heave * speed)                  # FR
-    thruster[5] = clamp(heave * speed)                  # BR
+    thruster[0] = clamp((surge + yaw + sway) * speed)  # front left  (gui front right)
+    thruster[1] = clamp((surge - yaw + sway) * speed)  # front right  (gui front left)
+    thruster[2] = clamp((surge - yaw - sway) * speed)  # back right  (gui back left)
+    thruster[3] = clamp((surge + yaw - sway) * speed)  # back left
+    thruster[4] = clamp(heave * speed)                  # up left (vertical left)
+    thruster[5] = clamp(heave * speed)                  # up right (vertical rigth)
     
     # Current is proportional to sum of absolute thruster values
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER
@@ -305,7 +305,9 @@ def main():
 
         # Update thrusters
         thruster_canvas.delete("all")
-        draw_thrusters(thruster_canvas, thruster)
+
+        t2 = [thruster[1], thruster[0], thruster[3], thruster[2], thruster[4], thruster[5]]
+        draw_thrusters(thruster_canvas, t2)
 
         # Update current meter
         current_canvas.delete("all")
