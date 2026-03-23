@@ -98,12 +98,12 @@ float getValue(const String &line, const String &key) {
 void updateThrusters() {
   float t[NUM_THRUSTERS];
 
-  t[0] = surge + sway + yaw;  // UL
-  t[1] = surge - sway + yaw;  // FL
-  t[2] = surge - sway - yaw;  // BL
-  t[3] = surge + sway - yaw;  // UR
-  t[4] = -heave;               // UL
-  t[5] = heave;              // UR
+  t[0] = surge + yaw - sway + 0;  // front left
+  t[1] = surge - yaw + sway;  // front right
+  t[2] = surge - yaw - sway;  // back right
+  t[3] = surge + yaw + sway;  // back left
+  t[4] = -heave;               // up left
+  t[5] = heave;              // up right
 
   for (int i = 0; i < NUM_THRUSTERS; i++) {
     t[i] = constrain(t[i], -1.0, 1.0);

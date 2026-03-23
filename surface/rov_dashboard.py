@@ -69,8 +69,8 @@ def estimate_current():
     def clamp(v): return max(-1.0, min(1.0, v))
     thruster[0] = clamp((surge + yaw + sway) * speed)  # front left  (gui front right)
     thruster[1] = clamp((surge - yaw + sway) * speed)  # front right  (gui front left)
-    thruster[2] = clamp((surge - yaw - sway) * speed)  # back right  (gui back left)
-    thruster[3] = clamp((surge + yaw - sway) * speed)  # back left
+    thruster[2] = clamp((surge + yaw - sway) * speed)  # back right  (gui back left)
+    thruster[3] = clamp((surge - yaw - sway) * speed)  # back left
     thruster[4] = clamp(heave * speed)                  # up left (vertical left)
     thruster[5] = clamp(heave * speed)                  # up right (vertical rigth)
     
