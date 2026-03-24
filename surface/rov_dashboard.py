@@ -5,128 +5,72 @@ from tkinter import ttk
 import time
 from rov_gui import setup_gui, draw_joystick, draw_claw, draw_thrusters, draw_current
 
-# Configurable Variables for this Script
-###############################################################################
-VIDEO_ENABLED = True  # Global flag to enable/disable video
+VIDEO_ENABLED = True
 
 PI5_IP = "192.168.2.204"
 PI5_PORT = 9000
 
-DEADZONE = 0.2    # Deadzone for the sticks
-TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
-CLAW_RATE = 0.30  # claw open/close rate in units per second
-controller_remap = False  # Set to True to remap Logitech controller values to Xbox ranges. Keep False for production
+DEADZONE = 0.2
+TRIGGER_DEADZONE = 0.05
+CLAW_RATE = 0.30
+controller_remap = False
 
-# Current estimation based on thruster usage
-MAX_CURRENT_PER_THRUSTER = 6.0  # Amps per thruster at full throttle
+MAX_CURRENT_PER_THRUSTER = 6.0
 
-# See SPEED_MODES below
-speed_mode_index = 0  # Start at this speed (0 = slow, 1 = medium, 2 = full or fast)
+horizontal_speed = 0.3
+vertical_speed = 0.4
 
-
-# State Variables updated as we run
-###############################################################################
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0} # This is the object that is updated, compute() operates on it
-axes_raw = {"LX":0,"LY":0,"RX":0,"RY":0}  # Raw normalized values before deadzone, for GUI display
+axes = {"LX":0,"LY":0,"RX":0,"RY":0,"LT":0,"RT":0}
+axes_raw = {"LX":0,"LY":0,"RX":0,"RY":0}
 calibrate = False
 recording = False
 record_proc = None
 video = None
+video2 = None
 rec_btn = None
 claw_pos = 0.5
 claw_last_update = time.time()
-estimated_current = 0.0  # Estimated current draw in Amps
-thruster = [0.0] * 6  # Individual thruster values: UL, FL, BL, UR, FR, BR
-SPEED_MODES = [0.3, 0.5, 1.0]  # Available speed multipliers (slow, medium, full or fast)
-HEAVE_SPEED_MODES = [0.4, 0.4, 0.4]
+estimated_current = 0.0
+thruster = [0.0] * 6
 
-
-# Max raw controller values from the Xbox controller:
-#   Joystick axes (LX, LY, RX, RY): ±32767 (16-bit signed integer)
-#   Trigger axes (LT, RT): 0-255 (8-bit unsigned integer)
-
-# Remap Logitech controller values (0-255, centered at 127) to Xbox ranges (±32767)
 def remap(value, code):
     if code not in ["ABS_X", "ABS_Y", "ABS_RX", "ABS_RY"]:
         return value
-    # Convert from 0-255 range (centered at 127) to -32767 to 32767 range (centered at 0)
     return int(((value - 127) / 128) * 32767)
 
-
 def estimate_current():
-    """Estimate total current draw based on thruster mixing from arduino.ino"""
     global estimated_current, thruster
-    speed = SPEED_MODES[speed_mode_index]
-    surge = axes["LY"] # forward and back
-    sway = axes["LX"]  # straif lr
-    yaw = axes["RX"]   # look lr
-    heave = axes["RY"] # sink or float
-    
-    # Calculate thruster values using the same mixing as Arduino.
-    # Clamped inline so the list is never in a partially-unclamped state
-    # (avoids a one-frame glitch when the display thread reads between assignments).
+    speed = horizontal_speed
+    surge = axes["LY"]
+    sway = axes["LX"]
+    yaw = axes["RX"]
+    heave = axes["RY"]
+
     def clamp(v): return max(-1.0, min(1.0, v))
-    thruster[0] = clamp((surge + yaw + sway) * speed)  # front left  (gui front right)
-    thruster[1] = clamp((surge - yaw + sway) * speed)  # front right  (gui front left)
-    thruster[2] = clamp((surge + yaw - sway) * speed)  # back right  (gui back left)
-    thruster[3] = clamp((surge - yaw - sway) * speed)  # back left
-    thruster[4] = clamp(heave * speed)                  # up left (vertical left)
-    thruster[5] = clamp(heave * speed)                  # up right (vertical rigth)
-    
-    # Current is proportional to sum of absolute thruster values
+
+    thruster[0] = clamp((surge + yaw + sway) * speed)
+    thruster[1] = clamp((surge - yaw + sway) * speed)
+    thruster[2] = clamp((surge + yaw - sway) * speed)
+    thruster[3] = clamp((surge - yaw - sway) * speed)
+    thruster[4] = clamp(heave * vertical_speed)
+    thruster[5] = clamp(heave * vertical_speed)
+
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER
-    
-    # print(estimated_current)
 
-
-# 16 bit normalize
 def norm(v): return max(-1,min(1,v/32767))
 
-# call this after norm
 def deadzone(v):
-    if(abs(v) <= DEADZONE):
+    if abs(v) <= DEADZONE:
         return 0
-    else:
-        return v
+    return v
 
-# handles each xbox input
 def process(e):
-    # Wired Xbox 360 controller e.code values:
-    #
-    # Sticks (ev_type="Absolute", state: -32767 to 32767, up/left is negative):
-    #   ABS_X   — Left stick X  (left: -32767, right: +32767)
-    #   ABS_Y   — Left stick Y  (up: -32767, down: +32767)
-    #   ABS_RX  — Right stick X (left: -32767, right: +32767)
-    #   ABS_RY  — Right stick Y (up: -32767, down: +32767)
-    #
-    # Triggers (ev_type="Absolute", state: 0 to 255):
-    #   ABS_Z   — Left trigger  LT (released: 0, fully pressed: 255)
-    #   ABS_RZ  — Right trigger RT (released: 0, fully pressed: 255)
-    #
-    # D-pad (ev_type="Absolute"):
-    #   ABS_HAT0X — D-pad X (left: -1, center: 0, right: +1)
-    #   ABS_HAT0Y — D-pad Y (up: -1, center: 0, down: +1)
-    #
-    # Buttons (ev_type="Key", state: 0=released, 1=pressed):
-    #   BTN_SOUTH  — A
-    #   BTN_EAST   — B
-    #   BTN_WEST   — X
-    #   BTN_NORTH  — Y
-    #   BTN_TL     — Left bumper  (LB)
-    #   BTN_TR     — Right bumper (RB)
-    #   BTN_SELECT — Back
-    #   BTN_START  — Start
-    #   BTN_THUMBL — Left stick click  (LS)
-    #   BTN_THUMBR — Right stick click (RS)
-    #   BTN_MODE   — Xbox/Guide button
+    global horizontal_speed, vertical_speed
 
     if e.ev_type=="Absolute":
-        # print(e.code, e.state)
-
-        # Apply controller remapping if enabled
         state = remap(e.state, e.code) if controller_remap else e.state
-        
+
         if e.code=="ABS_X":
             normed = norm(state)
             axes_raw["LX"] = normed
@@ -143,46 +87,44 @@ def process(e):
             normed = -norm(state)
             axes_raw["RY"] = normed
             axes["RY"] = deadzone(normed)
+
         if e.code=="ABS_Z": axes["LT"]=e.state/255
         if e.code=="ABS_RZ": axes["RT"]=e.state/255
-        if e.code=="ABS_HAT0Y" and e.state != 0:
-            global speed_mode_index
-            # D-pad up (state=-1) increases speed, down (state=+1) decreases speed
-            speed_mode_index = max(0, min(len(SPEED_MODES) - 1, speed_mode_index - e.state))
 
-# takes the axes object, and converts it to a format to send over the wire
+        if e.code == "ABS_HAT0Y" and e.state != 0:
+            if e.state == -1:
+                horizontal_speed = min(1.0, horizontal_speed + 0.1)
+            elif e.state == 1:
+                horizontal_speed = max(0.1, horizontal_speed - 0.1)
+
+        if e.code == "ABS_HAT0X" and e.state != 0:
+            if e.state == 1:
+                vertical_speed = min(1.0, vertical_speed + 0.1)
+            elif e.state == -1:
+                vertical_speed = max(0.1, vertical_speed - 0.1)
+
 def compute():
     global claw_pos, claw_last_update
     now = time.time()
     dt = now - claw_last_update
     claw_last_update = now
-    
+
     rt = axes["RT"]
     lt = axes["LT"]
-    
-    # Apply trigger deadzone to prevent jitter when triggers are idle
-    if rt < TRIGGER_DEADZONE:
-        rt = 0
-    if lt < TRIGGER_DEADZONE:
-        lt = 0
-    
-    # Move claw proportionally based on trigger deflection
-    # RT increases claw_pos, LT decreases it, scaled by actual time delta
+
+    if rt < TRIGGER_DEADZONE: rt = 0
+    if lt < TRIGGER_DEADZONE: lt = 0
+
     claw_pos += (rt - lt) * CLAW_RATE * dt
-    
-    # Clamp between 0 and 1
     claw_pos = max(0, min(1, claw_pos))
 
     estimate_current()
 
-    speed = SPEED_MODES[speed_mode_index]
-    hspeed = HEAVE_SPEED_MODES[speed_mode_index]
-
     return {
-        "surge": axes["LY"] * speed,
-        "sway": axes["LX"] * speed,
-        "yaw": axes["RX"] * speed,
-        "heave": axes["RY"] * hspeed,
+        "surge": axes["LY"] * horizontal_speed,
+        "sway": axes["LX"] * horizontal_speed,
+        "yaw": axes["RX"] * horizontal_speed,
+        "heave": axes["RY"] * vertical_speed,
         "claw_pos": claw_pos,
         "calibrate": calibrate
     }
@@ -198,13 +140,9 @@ def fmt(c):
     )
 
 def sender():
-    last = time.time()
     while True:
         for e in get_gamepad():
             process(e)
-        # now = time.time()
-        # print(str(axes) + str(now-last))
-        # last = now
         comp = compute()
         print(comp)
         sock.sendto(fmt(comp).encode(), (PI5_IP, PI5_PORT))
@@ -232,19 +170,13 @@ def toggle_record():
         if rec_btn:
             rec_btn.config(text="Stop Recording")
     else:
-        try:
-            record_proc.terminate()
-        except Exception:
-            pass
+        try: record_proc.terminate()
+        except: pass
         recording = False
         if rec_btn:
             rec_btn.config(text="Start Recording")
 
 def start_video_stream():
-    """Start a local GStreamer pipeline that listens on UDP port 5000 and
-    displays the incoming H.264 RTP stream. Returns the subprocess.Popen
-    object so callers can terminate it when desired.
-    """
     cmd = [
         "gst-launch-1.0",
         "udpsrc", "port=5000",
@@ -255,16 +187,24 @@ def start_video_stream():
         "!", "videoconvert",
         "!", "autovideosink"
     ]
+    logging.info(f"Starting video display pipeline: {cmd}")
+    return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
-    logging.info(f'Starting video display pipeline: {cmd}')
-    # detach the child so it doesn't share the terminal/session and avoid
-    # blocking when the child writes to stdout/stderr.
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    return proc
-
+def start_video_stream_cam2():
+    cmd = [
+        "gst-launch-1.0",
+        "udpsrc", "port=5001",
+        "caps=application/x-rtp, media=video, encoding-name=H264, payload=96",
+        "!", "rtph264depay",
+        "!", "avdec_h264",
+        "!", "identity", "silent=false",
+        "!", "videoconvert",
+        "!", "autovideosink"
+    ]
+    logging.info(f"Starting second video display pipeline: {cmd}")
+    return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 def read_video_stream_output(video_proc):
-    """Read available output from the video process without blocking."""
     if video_proc is None or video_proc.poll() is not None:
         return
     try:
@@ -280,102 +220,90 @@ def read_video_stream_output(video_proc):
             except Exception as e:
                 logging.error(f"Error reading video stream: {e}")
     except Exception:
-        # select may fail on some platforms; ignore and continue
         pass
 
 def main():
-    global video, rec_btn, recording, record_proc
-    
-    # Set up the GUI
+    global video, video2, rec_btn, recording, record_proc
+
     root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn = setup_gui(toggle_cal, toggle_record)
 
-    # Update function for controller visualizations
     def update_displays():
-        # Update left joystick (LX, LY) - use raw values to show deadzone movement
         left_canvas.delete("all")
         draw_joystick(left_canvas, axes_raw["LX"], axes_raw["LY"], DEADZONE)
-        
-        # Update right joystick (RX, RY) - use raw values to show deadzone movement
+
         right_canvas.delete("all")
         draw_joystick(right_canvas, axes_raw["RX"], axes_raw["RY"], DEADZONE)
-        
-        # Update claw
+
         claw_canvas.delete("all")
         draw_claw(claw_canvas, claw_pos)
 
-        # Update thrusters
         thruster_canvas.delete("all")
-
         t2 = [thruster[1], thruster[0], thruster[3], thruster[2], thruster[4], thruster[5]]
         draw_thrusters(thruster_canvas, t2)
 
-        # Update current meter
         current_canvas.delete("all")
         draw_current(current_canvas, estimated_current)
 
-        # Update status label
         cal_status = "CAL" if calibrate else "---"
         rec_status = "REC" if recording else "---"
-        speed_names  = ["SLOW", "MED", "FAST"]
-        speed_colors = ["#4da6ff", "#cc6600", "red"]
-        speed_name  = speed_names[speed_mode_index]
-        speed_color = speed_colors[speed_mode_index]
+
         status_label.config(
             text=f"Calibrate: {cal_status}  |  Recording: {rec_status}  |  LT: {axes['LT']:.2f}  RX: {axes['RX']:.2f}  |  Speed:",
             fg="black"
         )
+
         speed_label.config(
-            text=f"{speed_name} ({int(SPEED_MODES[speed_mode_index] * 100)}%) heave ({int(HEAVE_SPEED_MODES[speed_mode_index] * 100)}%)",
-            fg=speed_color
+            text=f"H {int(horizontal_speed*100)}%  |  V {int(vertical_speed*100)}%",
+            fg="black"
         )
-        
+
         root.after(50, update_displays)
 
     root.after(50, update_displays)
 
-    # start the video display pipeline on app start if enabled
-    global video
     if VIDEO_ENABLED:
         try:
             video = start_video_stream()
+            video2 = start_video_stream_cam2()
         except Exception as e:
-            logging.error(f"Failed to start video stream: {e}")
+            logging.error(f"Failed to start video streams: {e}")
 
         def poll_video():
             read_video_stream_output(video)
             root.after(200, poll_video)
 
-        root.after(200, poll_video)
+        def poll_video2():
+            read_video_stream_output(video2)
+            root.after(200, poll_video2)
 
-    # handle terminal Ctrl+C (SIGINT) so the Tk mainloop exits cleanly
+        root.after(200, poll_video)
+        root.after(200, poll_video2)
+
     def _sigint_handler(signum, frame=None):
         print('caught ^C')
         on_close()
 
     def on_close():
-        # terminate recording and video processes, then destroy UI
-        global recording, record_proc, video
+        global recording, record_proc, video, video2
         try:
             if record_proc is not None and recording:
                 record_proc.terminate()
-        except Exception:
-            pass
+        except: pass
         try:
             if video is not None and video.poll() is None:
                 video.terminate()
-        except Exception:
-            pass
+        except: pass
+        try:
+            if video2 is not None and video2.poll() is None:
+                video2.terminate()
+        except: pass
         try:
             root.destroy()
-        except Exception:
-            pass
+        except: pass
 
     def _check():
-        # schedule another check so the signal gets processed while
-        # the Tk event loop is running
         root.after(500, _check)
 
-    # register the signal handler and start the periodic check
     signal.signal(signal.SIGINT, _sigint_handler)
     root.after(500, _check)
     root.bind_all('<Control-c>', lambda e: _sigint_handler(None, None))
@@ -386,4 +314,3 @@ def main():
 if __name__ == "__main__":
     print("Starting ROV dashboard...")
     main()
-
