@@ -6,7 +6,7 @@ import select
 LISTEN_IP   = "0.0.0.0"
 LISTEN_PORT = 9000
 
-SERIAL_PORT = "/dev/ttyACM1"
+SERIAL_PORT = "/dev/ttyACM0"
 BAUD        = 115200
 
 PI4_IP      = "192.168.2.13"
