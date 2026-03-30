@@ -3,7 +3,7 @@ from inputs import get_gamepad
 import tkinter as tk
 from tkinter import ttk
 import time
-from rov_gui import setup_gui, draw_joystick, draw_claw, draw_thrusters, draw_current
+from rov_gui import setup_gui, draw_joystick, draw_claw, draw_thrusters, draw_current, draw_attitude
 
 # Configurable Variables for this Script
 ###############################################################################
@@ -16,6 +16,8 @@ DEADZONE = 0.2    # Deadzone for the sticks
 TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
 CLAW_RATE = 0.30  # claw open/close rate in units per second
 controller_remap = False  # Set to True to remap Logitech controller values to Xbox ranges. Keep False for production
+
+TELEMETRY_LISTEN_PORT = 9001  # port for receiving pitch/roll telemetry from ROV
 
 # Current estimation based on thruster usage
 MAX_CURRENT_PER_THRUSTER = 6.0  # Amps per thruster at full throttle
@@ -39,6 +41,9 @@ claw_pos = 0.5
 claw_last_update = time.time()
 estimated_current = 0.0  # Estimated current draw in Amps
 thruster = [0.0] * 6  # Individual thruster values: UL, FL, BL, UR, FR, BR
+level_enabled = False  # Roll leveling toggle
+tel_pitch = 0.0  # Pitch from accelerometer telemetry
+tel_roll = 0.0   # Roll from accelerometer telemetry
 
 
 # Max raw controller values from the Xbox controller:
@@ -186,7 +191,8 @@ def compute():
         "yaw": axes["RX"] * horizontal_speed,
         "heave": axes["RY"] * vertical_speed,
         "claw_pos": claw_pos,
-        "calibrate": calibrate
+        "calibrate": calibrate,
+        "level": level_enabled
     }
 
 def fmt(c):
@@ -196,7 +202,8 @@ def fmt(c):
         f"YAW {c['yaw']:.3f} "
         f"HEAVE {c['heave']:.3f} "
         f"CLAW_POS {c['claw_pos']:.3f} "
-        f"CALIBRATE {int(c['calibrate'])}\n"
+        f"CALIBRATE {int(c['calibrate'])} "
+        f"LEVEL {int(c['level'])}\n"
     )
 
 def sender():
@@ -216,6 +223,37 @@ threading.Thread(target=sender, daemon=True).start()
 def toggle_cal():
     global calibrate
     calibrate = not calibrate
+
+def toggle_level():
+    global level_enabled
+    level_enabled = not level_enabled
+
+def telemetry_listener():
+    """Background thread: listen for pitch/roll telemetry UDP packets from the ROV."""
+    global tel_pitch, tel_roll
+    tel_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    tel_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tel_sock.bind(("0.0.0.0", TELEMETRY_LISTEN_PORT))
+    tel_sock.settimeout(1.0)
+    while True:
+        try:
+            data, _ = tel_sock.recvfrom(256)
+            line = data.decode('utf-8', errors='ignore').strip()
+            parts = line.split()
+            if len(parts) >= 5 and parts[0] == "TEL":
+                for i, p in enumerate(parts):
+                    if p == "PITCH" and i + 1 < len(parts):
+                        try: tel_pitch = float(parts[i + 1])
+                        except ValueError: pass
+                    if p == "ROLL" and i + 1 < len(parts):
+                        try: tel_roll = float(parts[i + 1])
+                        except ValueError: pass
+        except socket.timeout:
+            pass
+        except Exception:
+            pass
+
+threading.Thread(target=telemetry_listener, daemon=True).start()
 
 def toggle_record():
     global recording, record_proc, rec_btn
@@ -296,7 +334,7 @@ def main():
     global video, video2, rec_btn, recording, record_proc
     
     # Set up the GUI
-    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn = setup_gui(toggle_cal, toggle_record)
+    root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, attitude_canvas, status_label, speed_label, rec_btn, level_btn = setup_gui(toggle_cal, toggle_record, toggle_level)
 
     # Update function for controller visualizations
     def update_displays():
@@ -321,6 +359,13 @@ def main():
         # Update current meter
         current_canvas.delete("all")
         draw_current(current_canvas, estimated_current)
+
+        # Update attitude indicator
+        attitude_canvas.delete("all")
+        draw_attitude(attitude_canvas, tel_pitch, tel_roll, level_enabled)
+
+        # Update level button text
+        level_btn.config(text=f"Roll Leveling: {'ON' if level_enabled else 'OFF'}")
 
         # Update status label
         cal_status = "CAL" if calibrate else "---"

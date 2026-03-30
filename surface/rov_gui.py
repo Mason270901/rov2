@@ -3,7 +3,7 @@ from tkinter import ttk
 
 # GUI SETTINGS
 ###############################################################################
-WINDOW_WIDTH = 1000
+WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 600
 
 STICK_RADIUS = 80                           # radius of outermost gray circle
@@ -26,6 +26,9 @@ CURRENT_BOX_H   = 200                       # Height of the current meter canvas
 CURRENT_MAX     = 36.0                      # Full-scale current (A) — 6 thrusters × 6 A
 CURRENT_WARN    = 24.0                      # Threshold where bar turns orange
 CURRENT_CRIT    = 30.0                      # Threshold where bar turns red
+
+ATTITUDE_BOX    = 170                       # Size of the attitude indicator canvas
+ATTITUDE_RADIUS = 65                        # Radius of the attitude circle
 
 
 # (cx, cy) centre of each thruster bar inside the canvas, order: UL FL BL UR FR BR
@@ -202,15 +205,85 @@ def draw_current(canvas, amps):
                        anchor="n", font=("Arial", 8, "bold"), fill="black")
 
 
-def setup_gui(toggle_cal_callback, toggle_record_callback):
+def draw_attitude(canvas, pitch, roll, level_enabled):
+    """Draw an artificial-horizon style attitude indicator.
+
+    Args:
+        canvas: tkinter Canvas widget (ATTITUDE_BOX × ATTITUDE_BOX)
+        pitch: pitch angle in degrees (positive = nose up)
+        roll: roll angle in degrees (positive = tilted right)
+        level_enabled: whether auto-leveling is active
+    """
+    import math
+    cx = cy = ATTITUDE_BOX / 2
+    r = ATTITUDE_RADIUS
+
+    # Outer circle
+    canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
+                       fill="#87CEEB", outline="black", width=2)
+
+    # Horizon line — shifted vertically by pitch, rotated by roll
+    pitch_shift = -pitch * (r / 45.0)  # pixels per degree
+    roll_rad = math.radians(roll)
+    dx = math.cos(roll_rad) * r
+    dy = math.sin(roll_rad) * r
+
+    # Horizon line endpoints
+    x0 = cx - dx
+    y0 = cy + pitch_shift + dy
+    x1 = cx + dx
+    y1 = cy + pitch_shift - dy
+
+    # Fill lower half (ground) using a polygon
+    # We clip visually by drawing a large polygon below the horizon line
+    canvas.create_polygon(
+        x0, y0, x1, y1,
+        cx + r + 20, cy + r + 20,
+        cx - r - 20, cy + r + 20,
+        fill="#8B6914", outline=""
+    )
+
+    # Re-draw circle border to clip the ground fill
+    canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
+                       fill="", outline="black", width=2)
+
+    # Horizon line
+    canvas.create_line(x0, y0, x1, y1, fill="white", width=2)
+
+    # Center crosshair (fixed aircraft reference)
+    canvas.create_line(cx - 15, cy, cx - 5, cy, fill="yellow", width=2)
+    canvas.create_line(cx + 5, cy, cx + 15, cy, fill="yellow", width=2)
+    canvas.create_line(cx, cy + 2, cx, cy + 8, fill="yellow", width=2)
+
+    # Numeric readouts below the circle
+    y_text = cy + r + 12
+    canvas.create_text(cx, y_text,
+                       text=f"P {pitch:+.1f}°   R {roll:+.1f}°",
+                       anchor="n", font=("Arial", 9, "bold"), fill="black")
+
+    # Level indicator
+    if level_enabled:
+        canvas.create_text(cx, y_text + 16,
+                           text="LEVEL ON", anchor="n",
+                           font=("Arial", 8, "bold"), fill="green")
+    else:
+        canvas.create_text(cx, y_text + 16,
+                           text="LEVEL OFF", anchor="n",
+                           font=("Arial", 8), fill="gray")
+
+
+def setup_gui(toggle_cal_callback, toggle_record_callback, toggle_level_callback):
     """Set up the GUI and return all necessary components.
     
     Args:
         toggle_cal_callback: callback function for calibration toggle button
         toggle_record_callback: callback function for record toggle button
+        toggle_level_callback: callback function for roll leveling toggle button
     
     Returns:
-        tuple: (root, left_canvas, right_canvas, claw_canvas, status_label, rec_btn)
+        tuple: (root, left_canvas, right_canvas, claw_canvas, thruster_canvas,
+                current_canvas, attitude_canvas, status_label, speed_label,
+                rec_btn, level_btn)
     """
     root = tk.Tk()
     root.title("ROV Dashboard")
@@ -225,6 +298,9 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
 
     rec_btn = ttk.Button(top_frame, text="Start Recording", command=toggle_record_callback)
     rec_btn.pack(side=tk.LEFT, padx=5)
+
+    level_btn = ttk.Button(top_frame, text="Roll Leveling: OFF", command=toggle_level_callback)
+    level_btn.pack(side=tk.LEFT, padx=5)
 
     # Middle frame for controller visualizations
     middle_frame = ttk.Frame(root)
@@ -267,6 +343,14 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
                                bg="white", highlightthickness=1)
     current_canvas.pack(padx=5, pady=10)
 
+    # Attitude indicator canvas
+    attitude_frame = ttk.LabelFrame(middle_frame, text="Attitude")
+    attitude_frame.pack(side=tk.LEFT, padx=5)
+
+    attitude_canvas = tk.Canvas(attitude_frame, width=ATTITUDE_BOX, height=ATTITUDE_BOX,
+                                bg="white", highlightthickness=1)
+    attitude_canvas.pack(padx=10, pady=10)
+
     # Status frame (for future additions)
     status_frame = ttk.LabelFrame(root, text="Status")
     status_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -276,4 +360,4 @@ def setup_gui(toggle_cal_callback, toggle_record_callback):
     speed_label = tk.Label(status_frame, text="", font=("Arial", 10, "bold"))
     speed_label.pack(side=tk.LEFT, padx=(4, 10), pady=5)
 
-    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, status_label, speed_label, rec_btn
+    return root, left_canvas, right_canvas, claw_canvas, thruster_canvas, current_canvas, attitude_canvas, status_label, speed_label, rec_btn, level_btn

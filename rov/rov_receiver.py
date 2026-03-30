@@ -10,6 +10,7 @@ SERIAL_PORT = "/dev/ttyACM0"
 BAUD        = 115200
 
 PI4_IP      = "192.168.2.13"
+TELEMETRY_PORT = 9001
 
 VIDEO_DEVICE_1 = "/dev/video0"
 VIDEO_DEVICE_2 = "/dev/video2"
@@ -24,6 +25,7 @@ video1 = None
 video2 = None
 ser = None
 sock = None
+tel_sock = None  # telemetry forwarding socket
 
 ###############################################################################
 # Options
@@ -89,12 +91,14 @@ def read_video_stream_output(video):
             logging.error(f"Error reading video stream: {e}")
 
 def main():
-    global sock, ser, video1, video2, running
+    global sock, ser, video1, video2, running, tel_sock
 
     print("binding socket...")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((LISTEN_IP, LISTEN_PORT))
     sock.setblocking(False)  # make socket non-blocking
+
+    tel_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     print("opening serial with 2 second delay...")
     ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0.1)
@@ -128,12 +132,18 @@ def main():
             pass
 
         # read Arduino serial output if available
-        if print_arduino and ser is not None and ser.is_open:
+        if ser is not None and ser.is_open:
             try:
                 if ser.in_waiting > 0:
                     arduino_data = ser.read(ser.in_waiting)
                     if arduino_data:
-                        print(arduino_data.decode('utf-8', errors='ignore'), end='')
+                        text = arduino_data.decode('utf-8', errors='ignore')
+                        if print_arduino:
+                            print(text, end='')
+                        # Forward telemetry lines to surface
+                        for line in text.splitlines():
+                            if line.startswith("TEL "):
+                                tel_sock.sendto(line.encode(), (PI4_IP, TELEMETRY_PORT))
             except Exception as e:
                 print(f"Error reading Arduino serial: {e}")
 
@@ -157,6 +167,10 @@ def main():
     try:
         if sock is not None:
             sock.close()
+    except: pass
+    try:
+        if tel_sock is not None:
+            tel_sock.close()
     except: pass
 
 if __name__ == "__main__":
