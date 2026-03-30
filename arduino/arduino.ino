@@ -27,7 +27,10 @@ float pitch = 0, rollAngle = 0;
 
 // Roll leveling
 bool levelEnabled = false;
-const float LEVEL_KP = 0.02;  // proportional gain — tune to taste
+const float LEVEL_KP = 0.5;  // proportional gain — tune to taste
+
+// Set to -1 if sensor is mounted component-side-down, 1 if component-side-up
+const float ACCEL_Z_SIGN = -1.0;
 
 // Telemetry timing
 unsigned long lastTelemetry = 0;
@@ -168,7 +171,7 @@ void readAccelerometer() {
   // Low-pass filter
   ax_f = ACCEL_ALPHA * ax_raw + (1.0 - ACCEL_ALPHA) * ax_f;
   ay_f = ACCEL_ALPHA * ay_raw + (1.0 - ACCEL_ALPHA) * ay_f;
-  az_f = ACCEL_ALPHA * az_raw + (1.0 - ACCEL_ALPHA) * az_f;
+  az_f = ACCEL_ALPHA * (az_raw * ACCEL_Z_SIGN) + (1.0 - ACCEL_ALPHA) * az_f;
 
   rollAngle = atan2(ay_f, az_f) * 180.0 / M_PI;
   pitch     = atan2(-ax_f, sqrt(ay_f * ay_f + az_f * az_f)) * 180.0 / M_PI;

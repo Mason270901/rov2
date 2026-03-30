@@ -75,8 +75,13 @@ def estimate_current():
     thruster[1] = clamp((surge - yaw + sway) * speed)  # front right  (gui front left)
     thruster[2] = clamp((surge + yaw - sway) * speed)  # back right  (gui back left)
     thruster[3] = clamp((surge - yaw - sway) * speed)  # back left
-    thruster[4] = clamp(heave * vertical_speed)                  # up left (vertical left)
-    thruster[5] = clamp(heave * vertical_speed)                  # up right (vertical rigth)
+
+    # Roll leveling correction (mirrors Arduino logic)
+    rollCorrection = 0
+    if level_enabled:
+        rollCorrection = clamp((tel_roll / 45.0) * 0.5)
+    thruster[4] = clamp(heave * vertical_speed - rollCorrection)   # up left (vertical left)
+    thruster[5] = clamp(heave * vertical_speed - rollCorrection)   # up right (vertical right)
     
     # Current is proportional to sum of absolute thruster values
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER
