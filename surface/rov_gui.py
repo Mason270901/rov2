@@ -222,56 +222,61 @@ def draw_attitude(canvas, pitch, roll, level_enabled):
     pitch_shift = -pitch * (r / 45.0)
     roll_rad = math.radians(roll)
 
-    # Horizon line direction
-    hdx = math.cos(roll_rad)
-    hdy = -math.sin(roll_rad)
+    # The horizon line passes through (cx, cy + pitch_shift).
+    # Its direction vector is (cos(roll), -sin(roll)).
+    # "Below" the horizon (ground side) = the side where a point
+    # straight down from the horizon center lies.
+    # We use the signed distance: positive = ground side.
+    #
+    # The perpendicular to direction (cos,-sin) is (sin, cos).
+    # We pick the sign so that "straight down in world" maps to ground.
+    # In screen coords, down = +y.  After rotating by roll, the "down"
+    # direction in the rotated frame is (sin(roll), cos(roll)).
+    # So the ground-side normal is (sin(roll), cos(roll)).
+    nx = math.sin(roll_rad)
+    ny = math.cos(roll_rad)
 
-    # Horizon passes through this point
+    # Reference point on the horizon line
     hx0 = cx
     hy0 = cy + pitch_shift
 
-    # Normal pointing toward ground (counter-clockwise 90° of direction)
-    nx = -hdy
-    ny = hdx
-
-    # Sample circle boundary and classify each point as sky or ground
+    # Sample circle boundary and compute signed distance to horizon
     N = 72
     circle_points = []
-    sides = []
+    dists = []
     for i in range(N):
         angle = 2 * math.pi * i / N
         px = cx + r * math.cos(angle)
         py = cy + r * math.sin(angle)
         circle_points.append((px, py))
-        dot = (px - hx0) * nx + (py - hy0) * ny
-        sides.append(dot >= 0)
+        d = (px - hx0) * nx + (py - hy0) * ny
+        dists.append(d)
 
-    # Build ground polygon from ground-side arc segments + intersection points
+    # Build ground polygon: ground-side points + intersection points at transitions
     ground_poly = []
     for i in range(N):
+        j = (i + 1) % N
         curr = circle_points[i]
-        next_pt = circle_points[(i + 1) % N]
-        curr_ground = sides[i]
-        next_ground = sides[(i + 1) % N]
+        next_pt = circle_points[j]
+        d_curr = dists[i]
+        d_next = dists[j]
 
-        if curr_ground:
+        if d_curr >= 0:
             ground_poly.append(curr)
 
-        # At transitions, insert the intersection point
-        if curr_ground != next_ground:
-            d1 = (curr[0] - hx0) * nx + (curr[1] - hy0) * ny
-            d2 = (next_pt[0] - hx0) * nx + (next_pt[1] - hy0) * ny
-            if abs(d1 - d2) > 1e-6:
-                t = d1 / (d1 - d2)
+        # At sign transitions, insert the intersection point on the circle edge
+        if (d_curr >= 0) != (d_next >= 0):
+            if abs(d_curr - d_next) > 1e-9:
+                t = d_curr / (d_curr - d_next)
                 ix = curr[0] + t * (next_pt[0] - curr[0])
                 iy = curr[1] + t * (next_pt[1] - curr[1])
                 ground_poly.append((ix, iy))
 
-    # Draw sky background
+    # Draw sky background (full circle)
     canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
                        fill="#87CEEB", outline="", width=0)
 
-    # Draw ground polygon
+    # Draw ground polygon on top
     if len(ground_poly) >= 3:
         flat = []
         for p in ground_poly:
