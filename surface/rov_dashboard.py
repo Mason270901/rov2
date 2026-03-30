@@ -80,8 +80,8 @@ def estimate_current():
     rollCorrection = 0
     if level_enabled:
         rollCorrection = clamp((tel_roll / 45.0) * 0.5)
-    thruster[4] = clamp(heave * vertical_speed - rollCorrection)   # up left (vertical left)
-    thruster[5] = clamp(heave * vertical_speed - rollCorrection)   # up right (vertical right)
+    thruster[4] = clamp(heave * vertical_speed + rollCorrection)   # up left (vertical left)
+    thruster[5] = clamp(heave * vertical_speed + rollCorrection)   # up right (vertical right)
     
     # Current is proportional to sum of absolute thruster values
     estimated_current = sum(abs(val) for val in thruster) * MAX_CURRENT_PER_THRUSTER

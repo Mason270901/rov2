@@ -139,11 +139,11 @@ void updateThrusters() {
   // Vertical thrusters with optional roll leveling
   float rollCorrection = 0;
   if (levelEnabled) {
-    // rollAngle > 0 means tilted right → need more lift on left
+    // rollAngle > 0 means tilted right → need more lift on right side
     rollCorrection = constrain((rollAngle / 45.0) * LEVEL_KP, -1.0, 1.0);
   }
-  t[4] = -heave - rollCorrection;  // up left
-  t[5] = heave - rollCorrection;   // up right
+  t[4] = -heave + rollCorrection;  // up left
+  t[5] = heave + rollCorrection;   // up right
 
   for (int i = 0; i < NUM_THRUSTERS; i++) {
     t[i] = constrain(t[i], -1.0, 1.0);
