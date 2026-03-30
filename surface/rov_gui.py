@@ -218,37 +218,78 @@ def draw_attitude(canvas, pitch, roll, level_enabled):
     cx = cy = ATTITUDE_BOX / 2
     r = ATTITUDE_RADIUS
 
-    # Outer circle
-    canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
-                       fill="#87CEEB", outline="black", width=2)
-
-    # Horizon line — shifted vertically by pitch, rotated by roll
-    pitch_shift = -pitch * (r / 45.0)  # pixels per degree
+    # Pitch shifts horizon vertically, roll rotates it
+    pitch_shift = -pitch * (r / 45.0)
     roll_rad = math.radians(roll)
-    dx = math.cos(roll_rad) * r
-    dy = math.sin(roll_rad) * r
 
-    # Horizon line endpoints
-    x0 = cx - dx
-    y0 = cy + pitch_shift + dy
-    x1 = cx + dx
-    y1 = cy + pitch_shift - dy
+    # Horizon line direction
+    hdx = math.cos(roll_rad)
+    hdy = -math.sin(roll_rad)
 
-    # Fill lower half (ground) using a polygon
-    # We clip visually by drawing a large polygon below the horizon line
-    canvas.create_polygon(
-        x0, y0, x1, y1,
-        cx + r + 20, cy + r + 20,
-        cx - r - 20, cy + r + 20,
-        fill="#8B6914", outline=""
-    )
+    # Horizon passes through this point
+    hx0 = cx
+    hy0 = cy + pitch_shift
 
-    # Re-draw circle border to clip the ground fill
+    # Normal pointing toward ground (counter-clockwise 90° of direction)
+    nx = -hdy
+    ny = hdx
+
+    # Sample circle boundary and classify each point as sky or ground
+    N = 72
+    circle_points = []
+    sides = []
+    for i in range(N):
+        angle = 2 * math.pi * i / N
+        px = cx + r * math.cos(angle)
+        py = cy + r * math.sin(angle)
+        circle_points.append((px, py))
+        dot = (px - hx0) * nx + (py - hy0) * ny
+        sides.append(dot >= 0)
+
+    # Build ground polygon from ground-side arc segments + intersection points
+    ground_poly = []
+    for i in range(N):
+        curr = circle_points[i]
+        next_pt = circle_points[(i + 1) % N]
+        curr_ground = sides[i]
+        next_ground = sides[(i + 1) % N]
+
+        if curr_ground:
+            ground_poly.append(curr)
+
+        # At transitions, insert the intersection point
+        if curr_ground != next_ground:
+            d1 = (curr[0] - hx0) * nx + (curr[1] - hy0) * ny
+            d2 = (next_pt[0] - hx0) * nx + (next_pt[1] - hy0) * ny
+            if abs(d1 - d2) > 1e-6:
+                t = d1 / (d1 - d2)
+                ix = curr[0] + t * (next_pt[0] - curr[0])
+                iy = curr[1] + t * (next_pt[1] - curr[1])
+                ground_poly.append((ix, iy))
+
+    # Draw sky background
+    canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
+                       fill="#87CEEB", outline="", width=0)
+
+    # Draw ground polygon
+    if len(ground_poly) >= 3:
+        flat = []
+        for p in ground_poly:
+            flat.extend(p)
+        canvas.create_polygon(*flat, fill="#8B6914", outline="")
+
+    # Circle border
     canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
                        fill="", outline="black", width=2)
 
     # Horizon line
-    canvas.create_line(x0, y0, x1, y1, fill="white", width=2)
+    dx = math.cos(roll_rad) * r
+    dy = math.sin(roll_rad) * r
+    lx0 = cx - dx
+    ly0 = cy + pitch_shift + dy
+    lx1 = cx + dx
+    ly1 = cy + pitch_shift - dy
+    canvas.create_line(lx0, ly0, lx1, ly1, fill="white", width=2)
 
     # Center crosshair (fixed aircraft reference)
     canvas.create_line(cx - 15, cy, cx - 5, cy, fill="yellow", width=2)
