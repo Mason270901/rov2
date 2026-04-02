@@ -397,6 +397,34 @@ def main():
         except Exception as e:
             logging.error(f"Failed to start video streams: {e}")
 
+    # Start detector thread if available
+    if HAS_DETECTOR:
+        def detector_thread():
+            global detect_count
+            try:
+                pipeline = 'udpsrc port=5000 caps="application/x-rtp, media=video, encoding-name=H264, payload=96" ! rtph264depay ! avdec_h264 ! videoconvert ! appsink'
+                cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+                if not cap.isOpened():
+                    logging.error("Detector: failed to open GStreamer capture; falling back to /dev/video0")
+                    cap = cv2.VideoCapture(0)
+            except Exception as ex:
+                logging.error(f"Detector thread setup failed: {ex}")
+                return
+
+            while True:
+                try:
+                    ret, frame = cap.read()
+                    if not ret:
+                        time.sleep(0.1)
+                        continue
+                    boxes = detect_crab(frame)
+                    detect_count = len(boxes) if boxes is not None else 0
+                    time.sleep(0.05)
+                except Exception:
+                    time.sleep(0.5)
+
+        threading.Thread(target=detector_thread, daemon=True).start()
+
         def poll_video():
             read_video_stream_output(video)
             root.after(200, poll_video)
