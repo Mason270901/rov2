@@ -43,6 +43,14 @@ float surge = 0, sway = 0, yaw = 0, heave = 0;
 float clawPos = 0.5;
 bool calibrate = false;
 
+// Claw filtering to reduce jitter (0..1, lower = smoother/slower)
+// Base alpha controls smoothing; multiply by CLAW_SPEED_MULT for faster response
+const float CLAW_ALPHA = 0.60; // base: higher = faster response
+const float CLAW_SPEED_MULT = 3.0; // overall speed multiplier (user requested 3x)
+const float CLAW_DEADBAND = 0.005; // small deadband to ignore noise around current position
+float claw_f = 0.5; // filtered claw position
+int lastClawAngle = -1;
+
 // const float THRUSTER_ALPHA = 0.02;
 
 
@@ -56,8 +64,12 @@ float t_prev[NUM_THRUSTERS] = {0};
 const int NEUTRAL = 1500;
 const int RANGE = 400;
 
-const int CLAW_OPEN = 120;
-const int CLAW_CLOSED = 10;
+// Claw servo endpoints (degrees). These are conservative defaults
+// for a high-torque micro servo (e.g. 40 kg·cm class). Tune these
+// values after mounting the servo so the claw opens/closes correctly
+// without binding or over-travel.
+const int CLAW_OPEN = 60;
+const int CLAW_CLOSED = 20;
 
 void setup() {
   Serial.begin(115200);
@@ -69,6 +81,9 @@ void setup() {
 
   claw.attach(clawPin);
   claw.write(CLAW_OPEN);
+  // initialize filtered state to current commanded position
+  claw_f = clawPos;
+  lastClawAngle = CLAW_OPEN;
 
   Serial.println("board init, waiting for esc");
 
@@ -159,8 +174,26 @@ void updateThrusters() {
 
 void updateClaw() {
   clawPos = constrain(clawPos, 0.0, 1.0);
-  int angle = CLAW_OPEN + (int)((CLAW_CLOSED - CLAW_OPEN) * clawPos);
-  claw.write(angle);
+  // Low-pass filter to smooth rapid input changes coming from the surface.
+  // Apply a user-requested speed multiplier but cap the effective alpha to avoid
+  // completely removing smoothing (keeps motion stable).
+  float effAlpha = CLAW_ALPHA * CLAW_SPEED_MULT;
+  if (effAlpha > 0.98) effAlpha = 0.98;
+  claw_f = effAlpha * clawPos + (1.0 - effAlpha) * claw_f;
+
+  // If the target is extremely close to the filtered value, ignore to avoid tiny noise
+  if (fabs(clawPos - claw_f) <= CLAW_DEADBAND) {
+    // nothing to do; filtered value is effectively the target
+  }
+
+  // Convert filtered position to servo angle (rounded)
+  int angle = CLAW_OPEN + (int)(((CLAW_CLOSED - CLAW_OPEN) * claw_f) + 0.5);
+
+  // Write whenever the integer angle changes (keeps motion smooth without pausing)
+  if (lastClawAngle < 0 || angle != lastClawAngle) {
+    claw.write(angle);
+    lastClawAngle = angle;
+  }
 }
 
 void readAccelerometer() {

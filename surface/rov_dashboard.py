@@ -14,7 +14,7 @@ PI5_PORT = 9000
 
 DEADZONE = 0.2    # Deadzone for the sticks
 TRIGGER_DEADZONE = 0.05  # ignore triggers below this to prevent jitter
-CLAW_RATE = 0.30  # claw open/close rate in units per second
+CLAW_RATE = 0.90  # claw open/close rate in units per second (3x faster)
 controller_remap = False  # Set to True to remap Logitech controller values to Xbox ranges. Keep False for production
 
 TELEMETRY_LISTEN_PORT = 9001  # port for receiving pitch/roll telemetry from ROV
