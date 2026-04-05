@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ROV Tactical Dashboard</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div class="grid-overlay"></div>
+
+  <div class="hud-container">
+    <header class="hud-header">
+      <div class="hud-title">ROV CONTROL / TACTICAL HUD</div>
+      <div class="hud-status" id="hud-status-text">
+        CAL: --- | REC: --- | H: 30% | V: 40%
+      </div>
+    </header>
+
+    <main class="hud-main">
+      <section class="panel panel-left">
+        <h2>JOYSTICKS</h2>
+        <div class="joystick-row">
+          <div class="joystick-block">
+            <div class="joystick-label">LEFT</div>
+            <canvas id="joy-left" width="200" height="200"></canvas>
+          </div>
+          <div class="joystick-block">
+            <div class="joystick-label">RIGHT</div>
+            <canvas id="joy-right" width="200" height="200"></canvas>
+          </div>
+        </div>
+
+        <div class="claw-section">
+          <div class="claw-label">CLAW</div>
+          <div class="claw-bar">
+            <div class="claw-fill" id="claw-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-center">
+        <h2>THRUSTERS</h2>
+        <div class="thruster-grid">
+          <div class="thruster thruster-front-left">
+            <div class="thruster-label">FL</div>
+            <div class="thruster-bar"><div class="thruster-fill" id="t-fl"></div></div>
+          </div>
+          <div class="thruster thruster-front-right">
+            <div class="thruster-label">FR</div>
+            <div class="thruster-bar"><div class="thruster-fill" id="t-fr"></div></div>
+          </div>
+          <div class="thruster thruster-back-left">
+            <div class="thruster-label">BL</div>
+            <div class="thruster-bar"><div class="thruster-fill" id="t-bl"></div></div>
+          </div>
+          <div class="thruster thruster-back-right">
+            <div class="thruster-label">BR</div>
+            <div class="thruster-bar"><div class="thruster-fill" id="t-br"></div></div>
+          </div>
+          <div class="thruster thruster-vert-left">
+            <div class="thruster-label">VL</div>
+            <div class="thruster-bar"><div class="thruster-fill" id="t-vl"></div></div>
+          </div>
+          <div class="thruster thruster-vert-right">
+            <div class="thruster-label">VR</div>
+            <div class="thruster-bar"><div class="thruster-fill" id="t-vr"></div></div>
+          </div>
+        </div>
+
+        <div class="current-section">
+          <div class="current-label">CURRENT DRAW</div>
+          <div class="current-value" id="current-value">0.0 A</div>
+          <div class="current-bar">
+            <div class="current-fill" id="current-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-right">
+        <h2>CONTROL</h2>
+
+        <div class="speed-block">
+          <div class="speed-label">HORIZONTAL SPEED</div>
+          <div class="speed-value" id="speed-h">30%</div>
+          <div class="speed-bar">
+            <div class="speed-fill" id="speed-h-fill"></div>
+          </div>
+        </div>
+
+        <div class="speed-block">
+          <div class="speed-label">VERTICAL SPEED</div>
+          <div class="speed-value" id="speed-v">40%</div>
+          <div class="speed-bar">
+            <div class="speed-fill" id="speed-v-fill"></div>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="btn-cal" class="hud-button">TOGGLE CAL</button>
+          <button id="btn-rec" class="hud-button">TOGGLE REC</button>
+        </div>
+
+        <div class="video-placeholder">
+          <div class="video-frame">
+            <div class="video-label">VIDEO FEED</div>
+            <div class="video-note">Video still handled by GStreamer window.<br>We can wire MJPEG/WebRTC later.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="static/dashboard.js"></script>
+</body>
+</html>

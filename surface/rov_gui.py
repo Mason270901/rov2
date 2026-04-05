@@ -38,9 +38,9 @@ ATTITUDE_RADIUS = 65                        # Radius of the attitude circle
 THRUSTER_POSITIONS = [
     # x , y
     ( 196, 90-60),  # "Back Right"
-    ( 64, 90-60),  # "Front Left"
-    (64, 90+60),  # "Back Left"
     (196, 90+60),  # "Front Right"
+    (64, 90+60),  # "Back Left"
+    ( 64, 90-60),  # "Front Left"
     (64, 90),  # "Vertical Left"
     (196, 90),  # "Vertical Right"
 ]

@@ -1,1 +1,4 @@
 inputs==0.5
+ultralytics
+opencv-python-headless
+torch
